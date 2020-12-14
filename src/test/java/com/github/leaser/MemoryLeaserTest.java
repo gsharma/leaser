@@ -23,23 +23,29 @@ public class MemoryLeaserTest {
         try {
             leaser = Leaser.memoryLeaser(7L, 1L);
             leaser.start();
-            final Resource resource = new Resource();
-            final long ttlSeconds = 1L;
+            int resourceCount = 50;
             final String ownerId = "unit-test";
-            LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
-            assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
+            final long ttlSeconds = 1L;
+            Resource resource = null;
+            LeaseInfo leaseInfo = null;
+            for (int iter = 0; iter < resourceCount; iter++) {
+                resource = new Resource();
+                leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+                assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
+            }
 
-            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
+            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != resourceCount
+                    && MemoryLeaser.class.cast(leaser).getExpiredLeases().size() < 25) {
                 Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
-            assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+            // assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
 
             // now that resource is free to acquire a lease on, let's try once more
             leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
             assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
 
-            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 2) {
+            while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
                 Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));

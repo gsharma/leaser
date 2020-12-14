@@ -113,8 +113,8 @@ public final class LeaseInfo {
 
     @Override
     public String toString() {
-        return "LeaseInfo [leaseId=" + leaseId + ", created=" + created + ", ownerId=" + ownerId + ", resourceId=" + resourceId + ", ttlSeconds="
-                + ttlSeconds + ", revision=" + revision + ", lastUpdated=" + lastUpdated + ", expirationEpochSeconds=" + expirationEpochSeconds + "]";
+        return "Lease [leaseId:" + leaseId + ", created:" + created + ", ownerId:" + ownerId + ", resourceId:" + resourceId + ", ttlSeconds:"
+                + ttlSeconds + ", revision:" + revision + ", lastUpdated:" + lastUpdated + ", expirationEpochSeconds:" + expirationEpochSeconds + "]";
     }
 
 }

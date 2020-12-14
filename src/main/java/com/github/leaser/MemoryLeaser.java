@@ -155,7 +155,7 @@ public final class MemoryLeaser implements Leaser {
         public void run() {
             while (!isInterrupted()) {
                 try {
-                    logger.info("Auditing live leases");
+                    logger.info("Auditing leases, live:{}, expired:{}", liveLeases.size(), expiredLeases.size());
                     for (final Map.Entry<String, LeaseInfo> leaseEntry : liveLeases.entrySet()) {
                         if (leaseEntry != null) {
                             final String resourceId = leaseEntry.getKey();
