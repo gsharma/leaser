@@ -7,13 +7,13 @@ public interface Leaser {
 
     void start() throws LeaserException;
 
-    LeaseInfo acquireLease(String resourceId, long ttlSeconds) throws LeaserException;
+    LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException;
 
-    boolean revokeLease(String resourceId) throws LeaserException;
+    boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException;
 
-    LeaseInfo extendLease(String resourceId, long ttlExtendBySeconds) throws LeaserException;
+    LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException;
 
-    LeaseInfo getLeaseInfo(String resourceId) throws LeaserException;
+    LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException;
 
     void stop() throws LeaserException;
 

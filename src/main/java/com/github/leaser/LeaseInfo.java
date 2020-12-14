@@ -11,6 +11,7 @@ public final class LeaseInfo {
     // immutable
     private final String leaseId;
     private final Instant created;
+    private final String ownerId;
     private final String resourceId;
 
     private volatile long ttlSeconds;
@@ -18,8 +19,9 @@ public final class LeaseInfo {
     private volatile Instant lastUpdated;
     private volatile Instant expirationEpochSeconds;
 
-    public LeaseInfo(final String resourceId, final long ttlSeconds) {
+    public LeaseInfo(final String ownerId, final String resourceId, final long ttlSeconds) {
         this.leaseId = UUID.randomUUID().toString();
+        this.ownerId = ownerId;
         this.resourceId = resourceId;
         this.ttlSeconds = ttlSeconds;
         this.created = Instant.now();
@@ -29,6 +31,10 @@ public final class LeaseInfo {
 
     public String getLeaseId() {
         return leaseId;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
     }
 
     public String getResourceId() {
@@ -67,6 +73,7 @@ public final class LeaseInfo {
         final int prime = 31;
         int result = 1;
         result = prime * result + ((leaseId == null) ? 0 : leaseId.hashCode());
+        result = prime * result + ((ownerId == null) ? 0 : ownerId.hashCode());
         result = prime * result + ((resourceId == null) ? 0 : resourceId.hashCode());
         return result;
     }
@@ -87,6 +94,13 @@ public final class LeaseInfo {
         } else if (!leaseId.equals(other.leaseId)) {
             return false;
         }
+        if (ownerId == null) {
+            if (other.ownerId != null) {
+                return false;
+            }
+        } else if (!ownerId.equals(other.ownerId)) {
+            return false;
+        }
         if (resourceId == null) {
             if (other.resourceId != null) {
                 return false;
@@ -99,8 +113,8 @@ public final class LeaseInfo {
 
     @Override
     public String toString() {
-        return "LeaseInfo [leaseId=" + leaseId + ", created=" + created + ", resourceId=" + resourceId + ", ttlSeconds=" + ttlSeconds + ", revision="
-                + revision + ", lastUpdated=" + lastUpdated + ", expirationEpochSeconds=" + expirationEpochSeconds + "]";
+        return "LeaseInfo [leaseId=" + leaseId + ", created=" + created + ", ownerId=" + ownerId + ", resourceId=" + resourceId + ", ttlSeconds="
+                + ttlSeconds + ", revision=" + revision + ", lastUpdated=" + lastUpdated + ", expirationEpochSeconds=" + expirationEpochSeconds + "]";
     }
 
 }

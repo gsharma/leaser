@@ -25,23 +25,24 @@ public class MemoryLeaserTest {
             leaser.start();
             final Resource resource = new Resource();
             final long ttlSeconds = 1L;
-            LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
-            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            final String ownerId = "unit-test";
+            LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
 
             while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
                 Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
             }
-            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
 
             // now that resource is free to acquire a lease on, let's try once more
-            leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
-            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
 
             while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 2) {
                 Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
             }
-            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
         } finally {
             if (leaser != null) {
@@ -58,13 +59,14 @@ public class MemoryLeaserTest {
             leaser.start();
             final Resource resource = new Resource();
             final long ttlSeconds = 1L;
-            final LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
-            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            final String ownerId = "unit-test";
+            final LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
             assertEquals(1, leaseInfo.getRevision());
             assertNull(leaseInfo.getLastUpdate());
             long expirationSeconds = leaseInfo.getExpirationEpochSeconds();
 
-            final LeaseInfo extendedLeaseInfo = leaser.extendLease(resource.getId(), 1L);
+            final LeaseInfo extendedLeaseInfo = leaser.extendLease(ownerId, resource.getId(), 1L);
             assertEquals(leaseInfo, extendedLeaseInfo);
             assertEquals(leaseInfo.getCreated(), extendedLeaseInfo.getCreated());
             assertEquals(2, extendedLeaseInfo.getRevision());
@@ -74,7 +76,7 @@ public class MemoryLeaserTest {
             while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
                 Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
             }
-            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
         } finally {
             if (leaser != null) {
@@ -114,8 +116,9 @@ public class MemoryLeaserTest {
             leaser.start();
             final Resource resource = new Resource();
             final long ttlSeconds = 2;
-            final LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
-            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            final String ownerId = "unit-test";
+            final LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
             assertEquals(1, leaseInfo.getRevision());
             assertNull(leaseInfo.getLastUpdate());
         } catch (LeaserException leaseAlreadyTakenException) {

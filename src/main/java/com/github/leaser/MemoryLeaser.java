@@ -73,14 +73,14 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo acquireLease(final String resourceId, final long ttlSeconds) throws LeaserException {
+    public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException {
         if (!running.get()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlSeconds);
         LeaseInfo leaseInfo = null;
         if (!liveLeases.containsKey(resourceId)) {
-            leaseInfo = new LeaseInfo(resourceId, ttlSeconds);
+            leaseInfo = new LeaseInfo(ownerId, resourceId, ttlSeconds);
             liveLeases.put(resourceId, leaseInfo);
             logger.info("Acquired {}", leaseInfo);
         } else {
@@ -90,19 +90,19 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public boolean revokeLease(final String resourceId) throws LeaserException {
+    public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
         // TODO: Denise to fill out & add tests
         return false;
     }
 
     @Override
-    public LeaseInfo extendLease(final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
+    public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
         if (!running.get()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlExtendBySeconds);
         final LeaseInfo leaseInfo = liveLeases.get(resourceId);
-        if (leaseInfo != null) {
+        if (leaseInfo != null && leaseInfo.getOwnerId().equals(ownerId)) {
             long prevExpirationSeconds = leaseInfo.getExpirationEpochSeconds();
             leaseInfo.extendTtlSeconds(ttlExtendBySeconds);
             long newExpirationSeconds = leaseInfo.getExpirationEpochSeconds();
@@ -113,12 +113,16 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo getLeaseInfo(final String resourceId) throws LeaserException {
+    public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException {
         if (!running.get()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
-        final LeaseInfo leaseInfo = liveLeases.get(resourceId);
-        logger.info("For resourceId:{}, found: {}", resourceId, leaseInfo);
+        LeaseInfo leaseInfo = liveLeases.get(resourceId);
+        if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId())) {
+            logger.info("For resourceId:{}, found: {}", resourceId, leaseInfo);
+        } else {
+            leaseInfo = null;
+        }
         return leaseInfo;
     }
 
