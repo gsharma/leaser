@@ -91,8 +91,14 @@ public final class MemoryLeaser implements Leaser {
 
     @Override
     public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
-        // TODO: Denise to fill out & add tests
-        return false;
+        if (!running.get()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
+        LeaseInfo leaseInfo = liveLeases.get(resourceId);
+        if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId())) {
+            logger.info("Revoking lease {} for resourceId:{}", leaseInfo, resourceId);
+        } else {
+
     }
 
     @Override
