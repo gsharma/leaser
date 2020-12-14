@@ -3,9 +3,6 @@ package com.github.leaser;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
-import com.github.leaser.LeaserException.Code;
 
 /**
  * This object represents the metadata associated with a lease on a Resource.
@@ -16,15 +13,12 @@ public final class LeaseInfo {
     private final Instant created;
     private final String resourceId;
 
-    private static final long maxTtlAllowed = TimeUnit.SECONDS.convert(7l, TimeUnit.DAYS);
-
     private volatile long ttlSeconds;
     private volatile long revision;
     private volatile Instant lastUpdated;
     private volatile Instant expirationEpochSeconds;
 
-    public LeaseInfo(final String resourceId, final long ttlSeconds) throws LeaserException {
-        validateTtlSeconds(ttlSeconds);
+    public LeaseInfo(final String resourceId, final long ttlSeconds) {
         this.leaseId = UUID.randomUUID().toString();
         this.resourceId = resourceId;
         this.ttlSeconds = ttlSeconds;
@@ -61,15 +55,7 @@ public final class LeaseInfo {
         return expirationEpochSeconds.getEpochSecond();
     }
 
-    private static boolean validateTtlSeconds(final long ttlSeconds) throws LeaserException {
-        if (ttlSeconds <= 0L || ttlSeconds > maxTtlAllowed) {
-            throw new LeaserException(Code.INVALID_LEASE_TTL, String.format("Invalid lease ttl seconds:%d", ttlSeconds));
-        }
-        return true;
-    }
-
-    public synchronized void extendTtlSeconds(final long ttlExtendBySeconds) throws LeaserException {
-        validateTtlSeconds(ttlExtendBySeconds);
+    public synchronized void extendTtlSeconds(final long ttlExtendBySeconds) {
         this.revision++;
         this.ttlSeconds = ttlExtendBySeconds;
         this.expirationEpochSeconds = expirationEpochSeconds.plusSeconds(ttlExtendBySeconds);

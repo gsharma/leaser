@@ -18,47 +18,69 @@ public class MemoryLeaserTest {
     private static final Logger logger = LogManager.getLogger(MemoryLeaserTest.class.getSimpleName());
 
     @Test
-    public void testSimpleLease() throws Exception {
-        final MemoryLeaser leaser = new MemoryLeaser();
-        leaser.start();
-        final Resource resource = new Resource();
-        final long ttlSeconds = 2;
-        final LeaseInfo leaseInfo = leaser.acquireLease(resource, ttlSeconds);
-        assertEquals(leaseInfo, leaser.getLeaseInfo(leaseInfo.getLeaseId()));
+    public void testLeaseAcquisition() throws Exception {
+        Leaser leaser = null;
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            final Resource resource = new Resource();
+            final long ttlSeconds = 1L;
+            LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
 
-        while (leaser.getExpiredLeases().isEmpty()) {
-            Thread.sleep(TimeUnit.MILLISECONDS.convert(1, TimeUnit.SECONDS));
+            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
+                Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
+            }
+            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+
+            // now that resource is free to acquire a lease on, let's try once more
+            leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+
+            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 2) {
+                Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
+            }
+            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
         }
-        assertNull(leaser.getLeaseInfo(leaseInfo.getLeaseId()));
-        assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
-        leaser.stop();
     }
 
     @Test
     public void testLeaseExtension() throws Exception {
-        final MemoryLeaser leaser = new MemoryLeaser();
-        leaser.start();
-        final Resource resource = new Resource();
-        final long ttlSeconds = 2;
-        final LeaseInfo leaseInfo = leaser.acquireLease(resource, ttlSeconds);
-        assertEquals(leaseInfo, leaser.getLeaseInfo(leaseInfo.getLeaseId()));
-        assertEquals(1, leaseInfo.getRevision());
-        assertNull(leaseInfo.getLastUpdate());
-        long expirationSeconds = leaseInfo.getExpirationEpochSeconds();
+        Leaser leaser = null;
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            final Resource resource = new Resource();
+            final long ttlSeconds = 1L;
+            final LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            assertEquals(1, leaseInfo.getRevision());
+            assertNull(leaseInfo.getLastUpdate());
+            long expirationSeconds = leaseInfo.getExpirationEpochSeconds();
 
-        final LeaseInfo extendedLeaseInfo = leaser.extendLease(leaseInfo.getLeaseId(), 1L);
-        assertEquals(leaseInfo, extendedLeaseInfo);
-        assertEquals(leaseInfo.getCreated(), extendedLeaseInfo.getCreated());
-        assertEquals(2, extendedLeaseInfo.getRevision());
-        assertNotNull(extendedLeaseInfo.getLastUpdate());
-        assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
+            final LeaseInfo extendedLeaseInfo = leaser.extendLease(resource.getId(), 1L);
+            assertEquals(leaseInfo, extendedLeaseInfo);
+            assertEquals(leaseInfo.getCreated(), extendedLeaseInfo.getCreated());
+            assertEquals(2, extendedLeaseInfo.getRevision());
+            assertNotNull(extendedLeaseInfo.getLastUpdate());
+            assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
 
-        while (leaser.getExpiredLeases().isEmpty()) {
-            Thread.sleep(TimeUnit.MILLISECONDS.convert(1, TimeUnit.SECONDS));
+            while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
+                Thread.sleep(TimeUnit.MILLISECONDS.convert(1L, TimeUnit.SECONDS));
+            }
+            assertNull(leaser.getLeaseInfo(resource.getId()));
+            assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
         }
-        assertNull(leaser.getLeaseInfo(leaseInfo.getLeaseId()));
-        assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
-        leaser.stop();
     }
 
     @Test
@@ -66,17 +88,51 @@ public class MemoryLeaserTest {
         // TODO: Denise to fill out
     }
 
-    @Test(expected = LeaserException.class)
-    public void testLeaserLCM() throws LeaserException {
-        final MemoryLeaser leaser = new MemoryLeaser();
+    @Test // (expected = LeaserException.class)
+    public void testLeaserReinit() throws LeaserException {
+        Leaser leaser = null;
         try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
             leaser.start();
-        } catch (LeaserException exception) {
-            // ignore this one
+            assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1);
+            // should blow-up
+            leaser.start();
+        } catch (LeaserException alreadyStartedException) {
+            assertEquals(LeaserException.Code.INVALID_LEASER_LCM, alreadyStartedException.getCode());
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
         }
-        assertTrue(leaser.getExpiredLeases().isEmpty());
-        // should blow-up
-        leaser.start();
     }
 
+    @Test
+    public void testIllegalLeaseAcquisition() throws LeaserException {
+        Leaser leaser = null;
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            final Resource resource = new Resource();
+            final long ttlSeconds = 2;
+            final LeaseInfo leaseInfo = leaser.acquireLease(resource.getId(), ttlSeconds);
+            assertEquals(leaseInfo, leaser.getLeaseInfo(resource.getId()));
+            assertEquals(1, leaseInfo.getRevision());
+            assertNull(leaseInfo.getLastUpdate());
+        } catch (LeaserException leaseAlreadyTakenException) {
+            assertEquals(LeaserException.Code.LEASE_ALREADY_EXISTS, leaseAlreadyTakenException.getCode());
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
+        }
+    }
+
+    @Test
+    public void testLeaserLCM() throws LeaserException {
+        final Leaser leaser = Leaser.memoryLeaser(7L, 1L);
+        for (int iter = 0; iter < 3; iter++) {
+            leaser.start();
+            leaser.stop();
+        }
+    }
 }

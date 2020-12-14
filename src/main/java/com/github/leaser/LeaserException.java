@@ -32,6 +32,8 @@ public final class LeaserException extends Exception {
         INVALID_LEASE_TTL("Lease TTL should be greater than zero seconds"),
         // 2.
         INVALID_LEASER_LCM("Leaser cannot retransition to the same desired state"),
+        // 3.
+        LEASE_ALREADY_EXISTS("Lease already exists for the requested resource"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser internal failure. Check exception stacktrace for more details of the failure");
