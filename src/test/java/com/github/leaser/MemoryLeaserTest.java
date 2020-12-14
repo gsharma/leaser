@@ -11,6 +11,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Random; 
+
 /**
  * Tests to keep the sanity of MemoryLeaser
  */
@@ -28,6 +31,7 @@ public class MemoryLeaserTest {
             final long ttlSeconds = 1L;
             Resource resource = null;
             LeaseInfo leaseInfo = null;
+            System.out.println("DENISE acq");
             for (int iter = 0; iter < resourceCount; iter++) {
                 resource = new Resource();
                 leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
@@ -50,6 +54,45 @@ public class MemoryLeaserTest {
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
+        }
+    }
+
+    @Test
+    public void testLeaseRevocation() throws Exception {
+        Leaser leaser = null;
+        int iter, cont;
+        Random r = new Random();
+
+        ArrayList<String> testLeases = new ArrayList<String>();
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            int resourceCount = 50;
+            final String ownerId = "unit-test";
+            final long ttlSeconds = 1L;
+            Resource resource = null;
+            LeaseInfo leaseInfo = null;
+            for (iter = 0; iter < resourceCount; iter++) {
+                resource = new Resource();
+                leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+                assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
+                testLeases.add(resource.getId());
+            }
+            // remove 4 random leases first 
+            for (cont = 0; cont < 4; cont ++) {
+              iter = r.nextInt(resourceCount-cont-1);
+              
+              if (leaser.revokeLease(ownerId, testLeases.get(iter))) 
+                testLeases.remove(iter);
+            }
+            for (iter = testLeases.size() - 1; iter >= 0; iter--) {
+              if (leaser.revokeLease(ownerId, testLeases.get(iter))) 
+                testLeases.remove(iter);
+            }
         } finally {
             if (leaser != null) {
                 leaser.stop();
@@ -89,11 +132,6 @@ public class MemoryLeaserTest {
                 leaser.stop();
             }
         }
-    }
-
-    @Test
-    public void testLeaseRevocation() throws Exception {
-        // TODO: Denise to fill out
     }
 
     @Test // (expected = LeaserException.class)
@@ -144,4 +182,5 @@ public class MemoryLeaserTest {
             leaser.stop();
         }
     }
+
 }

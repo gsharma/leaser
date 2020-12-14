@@ -95,10 +95,14 @@ public final class MemoryLeaser implements Leaser {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         LeaseInfo leaseInfo = liveLeases.get(resourceId);
-        if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId())) {
-            logger.info("Revoking lease {} for resourceId:{}", leaseInfo, resourceId);
+        if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId()) && resourceId.equals(leaseInfo.getResourceId())) {
+            logger.info("Revoking {} for resourceId {}", leaseInfo, resourceId);
+            liveLeases.remove(resourceId, leaseInfo);
+            return true;
         } else {
-
+            logger.info("lease with ownerId {} resourceId {} cant be found", ownerId, resourceId);
+            return false;
+        }
     }
 
     @Override
