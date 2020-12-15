@@ -12,7 +12,8 @@ import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.Random; 
+import java.util.List;
+import java.util.Random;
 
 /**
  * Tests to keep the sanity of MemoryLeaser
@@ -64,34 +65,32 @@ public class MemoryLeaserTest {
     @Test
     public void testLeaseRevocation() throws Exception {
         Leaser leaser = null;
-        int iter, cont;
-        Random r = new Random();
-
-        ArrayList<String> testLeases = new ArrayList<String>();
         try {
             leaser = Leaser.memoryLeaser(7L, 1L);
             leaser.start();
-            int resourceCount = 50;
+            final int resourceCount = 50;
             final String ownerId = "unit-test";
             final long ttlSeconds = 1L;
-            Resource resource = null;
-            LeaseInfo leaseInfo = null;
+            int iter = 0;
+            final List<String> testLeases = new ArrayList<String>();
             for (iter = 0; iter < resourceCount; iter++) {
-                resource = new Resource();
-                leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+                final Resource resource = new Resource();
+                final LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
                 assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
                 testLeases.add(resource.getId());
             }
-            // remove 4 random leases first 
-            for (cont = 0; cont < 4; cont ++) {
-              iter = r.nextInt(resourceCount-cont-1);
-              
-              if (leaser.revokeLease(ownerId, testLeases.get(iter))) 
-                testLeases.remove(iter);
+            // remove 4 random leases first
+            Random r = new Random();
+            for (int cont = 0; cont < 4; cont++) {
+                iter = r.nextInt(resourceCount - cont - 1);
+                if (leaser.revokeLease(ownerId, testLeases.get(iter))) {
+                    testLeases.remove(iter);
+                }
             }
             for (iter = testLeases.size() - 1; iter >= 0; iter--) {
-              if (leaser.revokeLease(ownerId, testLeases.get(iter))) 
-                testLeases.remove(iter);
+                if (leaser.revokeLease(ownerId, testLeases.get(iter))) {
+                    testLeases.remove(iter);
+                }
             }
         } finally {
             if (leaser != null) {
