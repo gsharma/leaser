@@ -34,6 +34,10 @@ public final class LeaserException extends Exception {
         INVALID_LEASER_LCM("Leaser cannot retransition to the same desired state"),
         // 3.
         LEASE_ALREADY_EXISTS("Lease already exists for the requested resource"),
+        // 4.
+        LEASE_NOT_FOUND("Lease for the requested resource does not exist"),
+        // 5.
+        LEASE_ALREADY_EXPIRED("Lease already expired for the requested resource"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser internal failure. Check exception stacktrace for more details of the failure");

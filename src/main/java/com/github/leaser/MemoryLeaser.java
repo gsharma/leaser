@@ -35,6 +35,15 @@ public final class MemoryLeaser implements Leaser {
             return size() > expiredLeasesToKeep;
         }
     });
+    private static final int revokedLeasesToKeep = 25;
+    private final Set<LeaseInfo> revokedLeases = Collections.newSetFromMap(new LinkedHashMap<LeaseInfo, Boolean>() {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public boolean removeEldestEntry(final Map.Entry<LeaseInfo, Boolean> eldest) {
+            return size() > revokedLeasesToKeep;
+        }
+    });
 
     // private static final long maxTtlAllowed = TimeUnit.SECONDS.convert(7l, TimeUnit.DAYS);
     private final long maxTtlSecondsAllowed;
@@ -54,6 +63,7 @@ public final class MemoryLeaser implements Leaser {
             // cleanly handle resumption cases
             liveLeases.clear();
             expiredLeases.clear();
+            revokedLeases.clear();
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             logger.info("Started MemoryLeaser [{}]", identity);
@@ -94,15 +104,28 @@ public final class MemoryLeaser implements Leaser {
         if (!running.get()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
-        LeaseInfo leaseInfo = liveLeases.get(resourceId);
-        if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId()) && resourceId.equals(leaseInfo.getResourceId())) {
-            logger.info("Revoking {} for resourceId {}", leaseInfo, resourceId);
-            liveLeases.remove(resourceId, leaseInfo);
-            return true;
+        boolean revoked = false;
+        final LeaseInfo leaseInfo = liveLeases.get(resourceId);
+        // check ownership
+        if (leaseInfo != null && leaseInfo.getOwnerId().equals(ownerId) && leaseInfo.getResourceId().equals(resourceId)) {
+            // check expiration
+            if (expiredLeases.contains(leaseInfo)) {
+                throw new LeaserException(Code.LEASE_ALREADY_EXPIRED,
+                        String.format("Lease for ownerId:%s and resourceId:%s is already expired", ownerId, resourceId));
+            }
+            // now revoke
+            {
+                // leaseInfo.revoke();
+                revokedLeases.add(leaseInfo);
+                liveLeases.remove(resourceId);
+                logger.info("Revoked {}", leaseInfo);
+                revoked = true;
+            }
         } else {
-            logger.info("lease with ownerId {} resourceId {} cant be found", ownerId, resourceId);
-            return false;
+            throw new LeaserException(Code.LEASE_NOT_FOUND,
+                    String.format("Lease for ownerId:%s and resourceId:%s can't be found", ownerId, resourceId));
         }
+        return revoked;
     }
 
     @Override
@@ -129,7 +152,7 @@ public final class MemoryLeaser implements Leaser {
         }
         LeaseInfo leaseInfo = liveLeases.get(resourceId);
         if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId())) {
-            logger.info("For resourceId:{}, found: {}", resourceId, leaseInfo);
+            logger.info("Found: {}", leaseInfo);
         } else {
             leaseInfo = null;
         }
@@ -145,7 +168,12 @@ public final class MemoryLeaser implements Leaser {
 
     // only for testing
     Set<LeaseInfo> getExpiredLeases() {
-        return Collections.synchronizedSet(expiredLeases);
+        return Collections.unmodifiableSet(expiredLeases);
+    }
+
+    // only for testing
+    Set<LeaseInfo> getRevokedLeases() {
+        return Collections.unmodifiableSet(revokedLeases);
     }
 
     /**

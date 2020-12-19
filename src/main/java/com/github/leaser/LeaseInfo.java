@@ -68,6 +68,11 @@ public final class LeaseInfo {
         this.lastUpdated = Instant.now();
     }
 
+    // consider touching the lease to place a revocation mark
+    // public void revoke() {
+    // this.revoked = Instant.now();
+    // }
+
     @Override
     public int hashCode() {
         final int prime = 31;

@@ -68,7 +68,7 @@ public class MemoryLeaserTest {
         try {
             leaser = Leaser.memoryLeaser(7L, 1L);
             leaser.start();
-            final int resourceCount = 50;
+            final int resourceCount = 20;
             final String ownerId = "unit-test";
             final long ttlSeconds = 1L;
             int iter = 0;
@@ -79,19 +79,30 @@ public class MemoryLeaserTest {
                 assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
                 testLeases.add(resource.getId());
             }
-            // remove 4 random leases first
-            Random r = new Random();
-            for (int cont = 0; cont < 4; cont++) {
-                iter = r.nextInt(resourceCount - cont - 1);
-                if (leaser.revokeLease(ownerId, testLeases.get(iter))) {
-                    testLeases.remove(iter);
-                }
+
+            // remove a few random leases first
+            int toRemove = 5;
+            Random random = new Random();
+            for (int cont = 0; cont < toRemove; cont++) {
+                iter = random.nextInt(resourceCount - cont - 1);
+                final String resourceId = testLeases.get(iter);
+                assertNotNull(leaser.getLeaseInfo(ownerId, resourceId));
+                assertTrue(leaser.revokeLease(ownerId, resourceId));
+                assertNull(leaser.getLeaseInfo(ownerId, resourceId));
+                testLeases.remove(iter);
             }
+            assertEquals(toRemove, MemoryLeaser.class.cast(leaser).getRevokedLeases().size());
+
             for (iter = testLeases.size() - 1; iter >= 0; iter--) {
-                if (leaser.revokeLease(ownerId, testLeases.get(iter))) {
-                    testLeases.remove(iter);
-                }
+                final String resourceId = testLeases.get(iter);
+                assertNotNull(leaser.getLeaseInfo(ownerId, resourceId));
+                assertTrue(leaser.revokeLease(ownerId, resourceId));
+                assertNull(leaser.getLeaseInfo(ownerId, resourceId));
+                testLeases.remove(iter);
             }
+
+            assertEquals(resourceCount,
+                    MemoryLeaser.class.cast(leaser).getRevokedLeases().size() + MemoryLeaser.class.cast(leaser).getExpiredLeases().size());
         } finally {
             if (leaser != null) {
                 leaser.stop();
