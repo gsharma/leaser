@@ -38,6 +38,10 @@ public final class LeaserException extends Exception {
         LEASE_NOT_FOUND("Lease for the requested resource does not exist"),
         // 5.
         LEASE_ALREADY_EXPIRED("Lease already expired for the requested resource"),
+        // 6.
+        LEASER_INIT_FAILURE("Failed to iniitialize the leaser"),
+        // 7.
+        LEASE_PERSISTENCE_FAILURE("Issue encountered with lease persistence"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser internal failure. Check exception stacktrace for more details of the failure");

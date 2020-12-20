@@ -21,4 +21,8 @@ public interface Leaser {
         return new MemoryLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
     }
 
+    static Leaser persistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        return new PersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+    }
+
 }

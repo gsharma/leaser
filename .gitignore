@@ -3,5 +3,6 @@
 /.settings
 /.classpath
 /.project
+/leasedb
 dependency-reduced-pom.xml
 leaser.log

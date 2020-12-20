@@ -1,6 +1,7 @@
 package com.github.leaser;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -190,6 +191,51 @@ public class MemoryLeaserTest {
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
             leaser.stop();
+        }
+    }
+
+    @Test
+    public void testLeaseInfoComparison() throws LeaserException {
+        Leaser leaser = null;
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            Resource resourceOne = new Resource();
+            long ttlSeconds = 2;
+            String ownerId = "unit-test";
+            LeaseInfo leaseInfoOne = leaser.acquireLease(ownerId, resourceOne.getId(), ttlSeconds);
+
+            final Resource resourceTwo = new Resource();
+            ttlSeconds = 2;
+            ownerId = "unit-test";
+            final LeaseInfo leaseInfoTwo = leaser.acquireLease(ownerId, resourceTwo.getId(), ttlSeconds);
+
+            assertFalse(leaseInfoTwo.equals(leaseInfoOne));
+            assertFalse(leaseInfoOne.compareTo(leaseInfoTwo) == 0);
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
+        }
+    }
+
+    @Test
+    public void testLeaseInfoSerDe() throws LeaserException {
+        Leaser leaser = null;
+        try {
+            leaser = Leaser.memoryLeaser(7L, 1L);
+            leaser.start();
+            Resource resource = new Resource();
+            long ttlSeconds = 20000;
+            String ownerId = "unit-test";
+            LeaseInfo leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
+            final byte[] serialized = LeaseInfo.serialize(leaseInfo);
+            LeaseInfo serDeLeaseInfo = LeaseInfo.deserialize(serialized);
+            assertTrue(serDeLeaseInfo.equals(leaseInfo));
+        } finally {
+            if (leaser != null) {
+                leaser.stop();
+            }
         }
     }
 
