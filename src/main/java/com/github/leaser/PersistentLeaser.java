@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -149,8 +148,29 @@ public final class PersistentLeaser implements Leaser {
 
     @Override
     public LeaseInfo extendLease(String ownerId, String resourceId, long ttlExtendBySeconds) throws LeaserException {
-        // TODO
-        return null;
+        if (!running.get()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
+        validateTtlSeconds(ttlExtendBySeconds);
+        LeaseInfo leaseInfo = null;
+        try {
+            final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
+            final byte[] serializedLeaseInfo = dataStore.get(liveLeases, serializedResourceId);
+            if (serializedLeaseInfo != null) {
+                leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
+                if (leaseInfo.getOwnerId().equals(ownerId)) {
+                    final long prevExpirationSeconds = leaseInfo.getExpirationEpochSeconds();
+                    leaseInfo.extendTtlSeconds(ttlExtendBySeconds);
+                    final long newExpirationSeconds = leaseInfo.getExpirationEpochSeconds();
+                    dataStore.put(liveLeases, serializedResourceId, LeaseInfo.serialize(leaseInfo));
+                    logger.debug("Lease expiration seconds, prev:{}, new:{}", prevExpirationSeconds, newExpirationSeconds);
+                }
+                logger.info("Extended {} by {} seconds", leaseInfo, ttlExtendBySeconds);
+            }
+        } catch (RocksDBException persistenceIssue) {
+            throw new LeaserException(Code.LEASE_PERSISTENCE_FAILURE, persistenceIssue);
+        }
+        return leaseInfo;
     }
 
     @Override
