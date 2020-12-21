@@ -3,13 +3,20 @@ package com.github.leaser;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.rocksdb.Options;
+import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
+import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
@@ -31,6 +38,11 @@ public final class PersistentLeaser implements Leaser {
     private File storeDirectory;
     private RocksDB dataStore;
 
+    // private ColumnFamilyHandle defaultCF;
+    private ColumnFamilyHandle liveLeases;
+    private ColumnFamilyHandle expiredLeases;
+    private ColumnFamilyHandle revokedLeases;
+
     PersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
@@ -42,15 +54,29 @@ public final class PersistentLeaser implements Leaser {
     public void start() throws LeaserException {
         if (running.compareAndSet(false, true)) {
             // cleanly handle resumption cases
-            RocksDB.loadLibrary();
-            final Options options = new Options();
-            options.setCreateIfMissing(true);
-            options.setCreateMissingColumnFamilies(true);
-            storeDirectory = new File("./leasedb", "leaser");
             try {
+                final ColumnFamilyOptions columnFamilyOptions = new ColumnFamilyOptions();
+                final List<ColumnFamilyDescriptor> columnFamilyDescriptors = new ArrayList<>(4);
+                columnFamilyDescriptors.add(0, new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, new ColumnFamilyOptions()));
+                columnFamilyDescriptors.add(1, new ColumnFamilyDescriptor("liveLeases".getBytes(StandardCharsets.UTF_8), columnFamilyOptions));
+                columnFamilyDescriptors.add(2, new ColumnFamilyDescriptor("expiredLeases".getBytes(StandardCharsets.UTF_8), columnFamilyOptions));
+                columnFamilyDescriptors.add(3, new ColumnFamilyDescriptor("revokedLeases".getBytes(StandardCharsets.UTF_8), columnFamilyOptions));
+
+                final List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+
+                RocksDB.loadLibrary();
+                final DBOptions options = new DBOptions();
+                options.setCreateIfMissing(true);
+                options.setCreateMissingColumnFamilies(true);
+                storeDirectory = new File("./leasedb", "leaser");
                 Files.createDirectories(storeDirectory.getParentFile().toPath());
                 Files.createDirectories(storeDirectory.getAbsoluteFile().toPath());
-                dataStore = RocksDB.open(options, storeDirectory.getAbsolutePath());
+                dataStore = RocksDB.open(options, storeDirectory.getAbsolutePath(), columnFamilyDescriptors, columnFamilyHandles);
+
+                // defaultCF = columnFamilyHandles.get(0);
+                liveLeases = columnFamilyHandles.get(1);
+                expiredLeases = columnFamilyHandles.get(2);
+                revokedLeases = columnFamilyHandles.get(3);
             } catch (Exception initProblem) {
                 throw new LeaserException(Code.LEASER_INIT_FAILURE, initProblem);
             }
@@ -72,10 +98,10 @@ public final class PersistentLeaser implements Leaser {
         try {
             final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
             final byte[] serializedLease = LeaseInfo.serialize(leaseInfo);
-            if (dataStore.get(serializedResourceId) != null) {
+            if (dataStore.get(liveLeases, serializedResourceId) != null) {
                 throw new LeaserException(Code.LEASE_ALREADY_EXISTS, String.format("Lease already taken for resourceId:%s", resourceId));
             }
-            dataStore.put(serializedResourceId, serializedLease);
+            dataStore.put(liveLeases, serializedResourceId, serializedLease);
             logger.info("Acquired {}", leaseInfo);
         } catch (RocksDBException persistenceIssue) {
             throw new LeaserException(Code.LEASE_PERSISTENCE_FAILURE, persistenceIssue);
@@ -91,14 +117,19 @@ public final class PersistentLeaser implements Leaser {
         boolean revoked = false;
         try {
             final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
-            final byte[] serializedLeaseInfo = dataStore.get(serializedResourceId);
+            final byte[] serializedLeaseInfo = dataStore.get(liveLeases, serializedResourceId);
             if (serializedLeaseInfo != null) {
                 LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
                 // check ownership
                 if (leaseInfo.getOwnerId().equals(ownerId) && leaseInfo.getResourceId().equals(resourceId)) {
                     // TODO: check expiration
+                    if (dataStore.get(expiredLeases, serializedResourceId) != null) {
+                        throw new LeaserException(Code.LEASE_ALREADY_EXPIRED,
+                                String.format("Lease for ownerId:%s and resourceId:%s is already expired", ownerId, resourceId));
+                    }
                     {
-                        dataStore.delete(serializedResourceId);
+                        dataStore.put(revokedLeases, serializedResourceId, serializedLeaseInfo);
+                        dataStore.delete(liveLeases, serializedResourceId);
                         logger.info("Revoked {}", leaseInfo);
                         revoked = true;
                     }
@@ -124,7 +155,7 @@ public final class PersistentLeaser implements Leaser {
         LeaseInfo leaseInfo = null;
         try {
             final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
-            final byte[] serializedLeaseInfo = dataStore.get(serializedResourceId);
+            final byte[] serializedLeaseInfo = dataStore.get(liveLeases, serializedResourceId);
             if (serializedLeaseInfo != null) {
                 leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
                 if (!leaseInfo.getOwnerId().equals(ownerId)) {
@@ -141,9 +172,21 @@ public final class PersistentLeaser implements Leaser {
     @Override
     public void stop() throws LeaserException {
         if (running.compareAndSet(true, false)) {
-            leaseAuditor.interrupt();
-            dataStore.close();
-            logger.info("Stopped PersistentLeaser [{}]", identity);
+            try {
+                leaseAuditor.interrupt();
+                // dataStore.dropColumnFamily(defaultCF);
+                dataStore.dropColumnFamily(liveLeases);
+                dataStore.dropColumnFamily(expiredLeases);
+                dataStore.dropColumnFamily(revokedLeases);
+                dataStore.close();
+                Files.walk(storeDirectory.toPath())
+                        .sorted(Comparator.reverseOrder())
+                        .map(Path::toFile)
+                        .forEach(File::delete);
+                logger.info("Stopped PersistentLeaser [{}]", identity);
+            } catch (Exception tiniProblem) {
+                throw new LeaserException(Code.LEASER_TINI_FAILURE, tiniProblem);
+            }
         } else {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to stop an already stopped leaser");
         }

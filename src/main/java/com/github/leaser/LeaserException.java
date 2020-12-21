@@ -42,6 +42,8 @@ public final class LeaserException extends Exception {
         LEASER_INIT_FAILURE("Failed to iniitialize the leaser"),
         // 7.
         LEASE_PERSISTENCE_FAILURE("Issue encountered with lease persistence"),
+        // 8.
+        LEASER_TINI_FAILURE("Failed to cleanly shutdown the leaser"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser internal failure. Check exception stacktrace for more details of the failure");
