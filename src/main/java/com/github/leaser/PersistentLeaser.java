@@ -4,9 +4,11 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,6 +21,7 @@ import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 
 import com.github.leaser.LeaserException.Code;
 
@@ -216,8 +219,26 @@ public final class PersistentLeaser implements Leaser {
         public void run() {
             while (!isInterrupted()) {
                 try {
-                    // TODO
                     // logger.info("Auditing leases, live:{}, expired:{}", liveLeases.size(), expiredLeases.size());
+                    logger.info("Auditing leases");
+                    try {
+                        final RocksIterator liveLeasesIter = dataStore.newIterator(liveLeases);
+                        for (liveLeasesIter.seekToFirst(); liveLeasesIter.isValid(); liveLeasesIter.next()) {
+                            final byte[] serializedResourceId = liveLeasesIter.key();
+                            final byte[] serializedLeaseInfo = liveLeasesIter.value();
+                            if (serializedResourceId != null && serializedLeaseInfo != null) {
+                                // final String resourceId = new String(serializedResourceId, StandardCharsets.UTF_8);
+                                final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
+                                if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
+                                    dataStore.put(expiredLeases, serializedResourceId, serializedLeaseInfo);
+                                    dataStore.delete(liveLeases, serializedResourceId);
+                                    logger.info("Expired {}", leaseInfo);
+                                }
+                            }
+                        }
+                    } catch (RocksDBException persistenceIssue) {
+                        logger.error(persistenceIssue);
+                    }
                     sleep(TimeUnit.MILLISECONDS.convert(runIntervalSeconds, TimeUnit.SECONDS));
                 } catch (InterruptedException interrupted) {
                     break;

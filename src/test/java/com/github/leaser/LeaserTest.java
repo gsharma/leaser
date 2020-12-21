@@ -101,8 +101,8 @@ public class LeaserTest {
                 assertNull(leaser.getLeaseInfo(ownerId, resourceId));
                 testLeases.remove(iter);
             }
-
-            // assertEquals(resourceCount, MemoryLeaser.class.cast(leaser).getRevokedLeases().size() + MemoryLeaser.class.cast(leaser).getExpiredLeases().size());
+            // assertEquals(resourceCount, MemoryLeaser.class.cast(leaser).getRevokedLeases().size() +
+            // MemoryLeaser.class.cast(leaser).getExpiredLeases().size());
         } finally {
             if (leaser != null) {
                 leaser.stop();
