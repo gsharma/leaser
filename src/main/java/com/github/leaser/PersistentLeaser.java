@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -193,6 +195,34 @@ public final class PersistentLeaser implements Leaser {
     }
 
     @Override
+    public Set<LeaseInfo> getExpiredLeases() {
+        final Set<LeaseInfo> recentExpiredLeases = new LinkedHashSet<>();
+        final RocksIterator expiredLeasesIter = dataStore.newIterator(expiredLeases);
+        for (expiredLeasesIter.seekToFirst(); expiredLeasesIter.isValid(); expiredLeasesIter.next()) {
+            final byte[] serializedLeaseInfo = expiredLeasesIter.value();
+            if (serializedLeaseInfo != null) {
+                final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
+                recentExpiredLeases.add(leaseInfo);
+            }
+        }
+        return recentExpiredLeases;
+    }
+
+    @Override
+    public Set<LeaseInfo> getRevokedLeases() {
+        final Set<LeaseInfo> recentRevokedLeases = new LinkedHashSet<>();
+        final RocksIterator revokedLeasesIter = dataStore.newIterator(revokedLeases);
+        for (revokedLeasesIter.seekToFirst(); revokedLeasesIter.isValid(); revokedLeasesIter.next()) {
+            final byte[] serializedLeaseInfo = revokedLeasesIter.value();
+            if (serializedLeaseInfo != null) {
+                final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
+                recentRevokedLeases.add(leaseInfo);
+            }
+        }
+        return recentRevokedLeases;
+    }
+
+    @Override
     public void stop() throws LeaserException {
         if (running.compareAndSet(true, false)) {
             try {
@@ -267,4 +297,5 @@ public final class PersistentLeaser implements Leaser {
             logger.info("Stopped LeaseAuditor");
         }
     }
+
 }

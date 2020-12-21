@@ -20,11 +20,29 @@ import java.util.Random;
 public class LeaserTest {
     private static final Logger logger = LogManager.getLogger(LeaserTest.class.getSimpleName());
 
+    private enum Mode {
+        PERSISTENT, MEMORY
+    };
+
+    // Run any test with either Persistent or Memory leaser
+    private static Leaser leaser(final Mode mode, final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        Leaser leaser = null;
+        switch (mode) {
+            case PERSISTENT:
+                leaser = Leaser.persistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                break;
+            case MEMORY:
+                leaser = Leaser.memoryLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                break;
+        }
+        return leaser;
+    }
+
     @Test
     public void testLeaseAcquisition() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             int resourceCount = 1;
             final String ownerId = "unit-test";
@@ -41,7 +59,7 @@ public class LeaserTest {
                 Thread.sleep(500L);
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
-            // assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+            assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
 
             // now that resource is free to acquire a lease on, let's try once more
             leaseInfo = leaser.acquireLease(ownerId, resource.getId(), ttlSeconds);
@@ -57,7 +75,7 @@ public class LeaserTest {
     public void testLeaseRevocation() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             final int resourceCount = 20;
             final String ownerId = "unit-test";
@@ -82,7 +100,7 @@ public class LeaserTest {
                 assertNull(leaser.getLeaseInfo(ownerId, resourceId));
                 testLeases.remove(iter);
             }
-            // assertEquals(toRemove, MemoryLeaser.class.cast(leaser).getRevokedLeases().size());
+            assertEquals(toRemove, leaser.getRevokedLeases().size());
 
             for (iter = testLeases.size() - 1; iter >= 0; iter--) {
                 final String resourceId = testLeases.get(iter);
@@ -91,8 +109,8 @@ public class LeaserTest {
                 assertNull(leaser.getLeaseInfo(ownerId, resourceId));
                 testLeases.remove(iter);
             }
-            // assertEquals(resourceCount, MemoryLeaser.class.cast(leaser).getRevokedLeases().size() +
-            // MemoryLeaser.class.cast(leaser).getExpiredLeases().size());
+            assertEquals(resourceCount, leaser.getRevokedLeases().size() +
+                    leaser.getExpiredLeases().size());
         } finally {
             if (leaser != null) {
                 leaser.stop();
@@ -104,7 +122,7 @@ public class LeaserTest {
     public void testLeaseExtension() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             final Resource resource = new Resource();
             final long ttlSeconds = 1L;
@@ -122,14 +140,11 @@ public class LeaserTest {
             assertNotNull(extendedLeaseInfo.getLastUpdate());
             assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
 
-            // while (MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1) {
-            // Thread.sleep(TimeUnit.MILLISECONDS.convert(2L, TimeUnit.SECONDS));
-            // }
             while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
                 Thread.sleep(500L);
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
-            // assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().contains(leaseInfo));
+            assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
         } finally {
             if (leaser != null) {
                 leaser.stop();
@@ -141,9 +156,8 @@ public class LeaserTest {
     public void testLeaserReinit() throws LeaserException {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
-            // assertTrue(MemoryLeaser.class.cast(leaser).getExpiredLeases().size() != 1);
             // should blow-up
             leaser.start();
         } catch (LeaserException alreadyStartedException) {
@@ -159,7 +173,7 @@ public class LeaserTest {
     public void testIllegalLeaseAcquisition() throws LeaserException {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             final Resource resource = new Resource();
             final long ttlSeconds = 2;
@@ -179,7 +193,7 @@ public class LeaserTest {
 
     @Test
     public void testLeaserLCM() throws LeaserException {
-        final Leaser leaser = Leaser.persistentLeaser(7L, 1L);
+        final Leaser leaser = leaser(Mode.PERSISTENT, 7L, 1L);
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
             leaser.stop();
@@ -190,7 +204,7 @@ public class LeaserTest {
     public void testLeaseInfoComparison() throws LeaserException {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             Resource resourceOne = new Resource();
             long ttlSeconds = 2;
@@ -215,7 +229,7 @@ public class LeaserTest {
     public void testLeaseInfoSerDe() throws LeaserException {
         Leaser leaser = null;
         try {
-            leaser = Leaser.persistentLeaser(7L, 1L);
+            leaser = leaser(Mode.PERSISTENT, 7L, 1L);
             leaser.start();
             Resource resource = new Resource();
             long ttlSeconds = 2000;

@@ -166,13 +166,13 @@ public final class MemoryLeaser implements Leaser {
         return true;
     }
 
-    // only for testing
-    Set<LeaseInfo> getExpiredLeases() {
+    @Override
+    public Set<LeaseInfo> getExpiredLeases() {
         return Collections.unmodifiableSet(expiredLeases);
     }
 
-    // only for testing
-    Set<LeaseInfo> getRevokedLeases() {
+    @Override
+    public Set<LeaseInfo> getRevokedLeases() {
         return Collections.unmodifiableSet(revokedLeases);
     }
 

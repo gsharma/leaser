@@ -1,5 +1,7 @@
 package com.github.leaser;
 
+import java.util.Set;
+
 /**
  * A simple service to manage resource leases.
  */
@@ -14,6 +16,10 @@ public interface Leaser {
     LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException;
 
     LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException;
+
+    Set<LeaseInfo> getExpiredLeases();
+
+    Set<LeaseInfo> getRevokedLeases();
 
     void stop() throws LeaserException;
 
