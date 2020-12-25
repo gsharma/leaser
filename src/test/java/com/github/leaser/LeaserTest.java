@@ -17,7 +17,7 @@ import java.util.Random;
 /**
  * Tests to keep the sanity of Leaser
  */
-public class LeaserTest {
+public final class LeaserTest {
     private static final Logger logger = LogManager.getLogger(LeaserTest.class.getSimpleName());
 
     private enum Mode {

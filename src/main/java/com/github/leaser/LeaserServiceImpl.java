@@ -21,7 +21,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserException leaserProblem) {
-            // TODO
+            responseObserver.onError(leaserProblem);
         }
     }
 
@@ -34,7 +34,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserException leaserProblem) {
-            // TODO
+            responseObserver.onError(leaserProblem);
         }
     }
 
@@ -48,7 +48,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserException leaserProblem) {
-            // TODO
+            responseObserver.onError(leaserProblem);
         }
     }
 
@@ -62,7 +62,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserException leaserProblem) {
-            // TODO
+            responseObserver.onError(leaserProblem);
         }
     }
 

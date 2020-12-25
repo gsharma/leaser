@@ -16,6 +16,7 @@ public final class LeaserServer {
     private static final Logger logger = LogManager.getLogger(LeaserServer.class.getSimpleName());
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean ready = new AtomicBoolean(false);
     private Leaser leaser;
     private Server server;
 
@@ -31,6 +32,7 @@ public final class LeaserServer {
             server = ServerBuilder.forPort(serverPort)
                     .addService(service).build();
             server.start();
+            ready.set(true);
             logger.info("Started leaser server at port {}", serverPort);
             server.awaitTermination();
         } else {
@@ -41,6 +43,7 @@ public final class LeaserServer {
     public void stop() throws Exception {
         logger.info("Stopping leaser server");
         if (running.compareAndSet(true, false)) {
+            ready.set(false);
             leaser.stop();
             server.shutdown();
             server.awaitTermination(2L, TimeUnit.SECONDS);
@@ -48,6 +51,10 @@ public final class LeaserServer {
         } else {
             logger.error("Invalid attempt to stop an already stopped leaser server");
         }
+    }
+
+    public boolean isRunning() {
+        return running.get() && ready.get();
     }
 
     public static void main(String[] args) throws Exception {
