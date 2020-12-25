@@ -1,5 +1,7 @@
 package com.github.leaser;
 
+import java.util.Set;
+
 import io.grpc.stub.StreamObserver;
 
 public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImplBase {
@@ -10,39 +12,99 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
     }
 
     @Override
-    public void acquireLease(AcquireLeaseRequest request,
-            StreamObserver<AcquireLeaseResponse> responseObserver) {
-        // TODO: leaser.acquireLease(null, null, 0);
+    public void acquireLease(final AcquireLeaseRequest request,
+            final StreamObserver<AcquireLeaseResponse> responseObserver) {
+        try {
+            final LeaseInfo leaseInfo = leaser.acquireLease(request.getOwnerId(), request.getResourceId(), request.getTtlSeconds());
+            final Lease lease = leaseInfoToLease(leaseInfo);
+            final AcquireLeaseResponse response = AcquireLeaseResponse.newBuilder().setLease(lease).build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            // TODO
+        }
     }
 
     @Override
-    public void revokeLease(RevokeLeaseRequest request,
-            StreamObserver<RevokeLeaseResponse> responseObserver) {
-        // TODO: leaser.revokeLease(null, null);
+    public void revokeLease(final RevokeLeaseRequest request,
+            final StreamObserver<RevokeLeaseResponse> responseObserver) {
+        try {
+            final boolean revoked = leaser.revokeLease(request.getOwnerId(), request.getResourceId());
+            final RevokeLeaseResponse response = RevokeLeaseResponse.newBuilder().setRevoked(revoked).build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            // TODO
+        }
     }
 
     @Override
-    public void extendLease(ExtendLeaseRequest request,
-            StreamObserver<ExtendLeaseResponse> responseObserver) {
-        // TODO: leaser.extendLease(null, null, 0);
+    public void extendLease(final ExtendLeaseRequest request,
+            final StreamObserver<ExtendLeaseResponse> responseObserver) {
+        try {
+            final LeaseInfo leaseInfo = leaser.extendLease(request.getOwnerId(), request.getResourceId(), request.getTtlExtendBySeconds());
+            final Lease lease = leaseInfoToLease(leaseInfo);
+            final ExtendLeaseResponse response = ExtendLeaseResponse.newBuilder().setLease(lease).build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            // TODO
+        }
     }
 
     @Override
-    public void getLeaseInfo(GetLeaseInfoRequest request,
-            StreamObserver<GetLeaseInfoResponse> responseObserver) {
-        // TODO: leaser.getLeaseInfo(null, null);
+    public void getLeaseInfo(final GetLeaseInfoRequest request,
+            final StreamObserver<GetLeaseInfoResponse> responseObserver) {
+        try {
+            final LeaseInfo leaseInfo = leaser.getLeaseInfo(request.getOwnerId(), request.getResourceId());
+            final Lease lease = leaseInfoToLease(leaseInfo);
+            final GetLeaseInfoResponse response = GetLeaseInfoResponse.newBuilder().setLease(lease).build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            // TODO
+        }
     }
 
     @Override
-    public void getExpiredLeases(GetExpiredLeasesRequest request,
-            StreamObserver<GetExpiredLeasesResponse> responseObserver) {
-        // TODO: leaser.getExpiredLeases();
+    public void getExpiredLeases(final GetExpiredLeasesRequest request,
+            final StreamObserver<GetExpiredLeasesResponse> responseObserver) {
+        final Set<LeaseInfo> expiredLeaseInfos = leaser.getExpiredLeases();
+        final GetExpiredLeasesResponse.Builder responseBuilder = GetExpiredLeasesResponse.newBuilder();
+        if (expiredLeaseInfos != null && !expiredLeaseInfos.isEmpty()) {
+            for (final LeaseInfo expiredLeaseInfo : expiredLeaseInfos) {
+                responseBuilder.addExpiredLeases(leaseInfoToLease(expiredLeaseInfo));
+            }
+        }
+        final GetExpiredLeasesResponse response = responseBuilder.build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
     @Override
-    public void getRevokedLeases(GetRevokedLeasesRequest request,
-            StreamObserver<GetRevokedLeasesResponse> responseObserver) {
-        // TODO: leaser.getRevokedLeases();
+    public void getRevokedLeases(final GetRevokedLeasesRequest request,
+            final StreamObserver<GetRevokedLeasesResponse> responseObserver) {
+        final Set<LeaseInfo> revokedLeaseInfos = leaser.getRevokedLeases();
+        final GetRevokedLeasesResponse.Builder responseBuilder = GetRevokedLeasesResponse.newBuilder();
+        if (revokedLeaseInfos != null && !revokedLeaseInfos.isEmpty()) {
+            for (final LeaseInfo revokedLeaseInfo : revokedLeaseInfos) {
+                responseBuilder.addRevokedLeases(leaseInfoToLease(revokedLeaseInfo));
+            }
+        }
+        final GetRevokedLeasesResponse response = responseBuilder.build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    private static Lease leaseInfoToLease(final LeaseInfo leaseInfo) {
+        Lease lease = null;
+        if (leaseInfo != null) {
+            lease = Lease.newBuilder().setLeaseId(leaseInfo.getLeaseId()).setCreated(leaseInfo.getCreated().getTime())
+                    .setOwnerId(leaseInfo.getOwnerId()).setResourceId(leaseInfo.getResourceId()).setTtlSeconds(leaseInfo.getTtlSeconds())
+                    .setRevision(leaseInfo.getRevision()).setLastUpdated(leaseInfo.getLastUpdate().getTime())
+                    .setExpirationEpochSeconds(leaseInfo.getExpirationEpochSeconds()).build();
+        }
+        return lease;
     }
 
 }

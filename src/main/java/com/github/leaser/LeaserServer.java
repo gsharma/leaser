@@ -51,7 +51,7 @@ public final class LeaserServer {
     }
 
     public static void main(String[] args) throws Exception {
-        LeaserServer leaserServer = new LeaserServer();
+        final LeaserServer leaserServer = new LeaserServer();
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

@@ -3,40 +3,67 @@ option java_package = "com.github.leaser";
 option java_multiple_files = true;
 package com.github.leaser;
 
+message Lease {
+  string leaseId = 1;
+  int64 created = 2;
+  string ownerId = 3;
+  string resourceId = 4;
+  int64 ttlSeconds = 5;
+  int64 revision = 6;
+  int64 lastUpdated = 7;
+  int64 expirationEpochSeconds = 8;
+}
+
 message AcquireLeaseRequest {
+  string ownerId = 1;
+  string resourceId = 2;
+  int64 ttlSeconds = 3;
 }
 
 message AcquireLeaseResponse {
+  Lease lease = 1;
 }
 
 message RevokeLeaseRequest {
+  string ownerId = 1;
+  string resourceId = 2;
 }
 
 message RevokeLeaseResponse {
+  bool revoked = 1;
 }
 
 message ExtendLeaseRequest {
+  string ownerId = 1;
+  string resourceId = 2;
+  int64 ttlExtendBySeconds = 3;
 }
 
 message ExtendLeaseResponse {
+  Lease lease = 1;
 }
 
 message GetLeaseInfoRequest {
+  string ownerId = 1;
+  string resourceId = 2;
 }
 
 message GetLeaseInfoResponse {
+  Lease lease = 1;
 }
 
 message GetExpiredLeasesRequest {
 }
 
 message GetExpiredLeasesResponse {
+  repeated Lease expiredLeases = 1;
 }
 
 message GetRevokedLeasesRequest {
 }
 
 message GetRevokedLeasesResponse {
+  repeated Lease revokedLeases = 1;
 }
 
 service LeaserService {
