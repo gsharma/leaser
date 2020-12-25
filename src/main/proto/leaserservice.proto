@@ -1,0 +1,49 @@
+syntax = "proto3";
+option java_package = "com.github.leaser";
+option java_multiple_files = true;
+package com.github.leaser;
+
+message AcquireLeaseRequest {
+}
+
+message AcquireLeaseResponse {
+}
+
+message RevokeLeaseRequest {
+}
+
+message RevokeLeaseResponse {
+}
+
+message ExtendLeaseRequest {
+}
+
+message ExtendLeaseResponse {
+}
+
+message GetLeaseInfoRequest {
+}
+
+message GetLeaseInfoResponse {
+}
+
+message GetExpiredLeasesRequest {
+}
+
+message GetExpiredLeasesResponse {
+}
+
+message GetRevokedLeasesRequest {
+}
+
+message GetRevokedLeasesResponse {
+}
+
+service LeaserService {
+  rpc acquireLease(AcquireLeaseRequest) returns (AcquireLeaseResponse);
+  rpc revokeLease(RevokeLeaseRequest) returns (RevokeLeaseResponse);
+  rpc extendLease(ExtendLeaseRequest) returns (ExtendLeaseResponse);
+  rpc getLeaseInfo(GetLeaseInfoRequest) returns (GetLeaseInfoResponse);
+  rpc getExpiredLeases(GetExpiredLeasesRequest) returns (GetExpiredLeasesResponse);
+  rpc getRevokedLeases(GetRevokedLeasesRequest) returns (GetRevokedLeasesResponse);
+}
