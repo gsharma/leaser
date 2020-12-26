@@ -4,6 +4,9 @@ import java.util.Set;
 
 import io.grpc.stub.StreamObserver;
 
+/**
+ * RPC Service implementation for the Leaser.
+ */
 public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImplBase {
     private final Leaser leaser;
 
