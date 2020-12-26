@@ -21,6 +21,7 @@ public final class LeaserServer {
     private Server server;
 
     public void start() throws Exception {
+        final long startMillis = System.currentTimeMillis();
         int serverPort = 7070;
         long maxTtlDaysAllowed = 7L;
         long auditorFrequencySeconds = 1L;
@@ -33,7 +34,7 @@ public final class LeaserServer {
                     .addService(service).build();
             server.start();
             ready.set(true);
-            logger.info("Started leaser server at port {}", serverPort);
+            logger.info("Started leaser server at port {} in {} millis", serverPort, (System.currentTimeMillis() - startMillis));
             server.awaitTermination();
         } else {
             logger.error("Invalid attempt to start an already running leaser server");
@@ -41,13 +42,14 @@ public final class LeaserServer {
     }
 
     public void stop() throws Exception {
+        final long startMillis = System.currentTimeMillis();
         logger.info("Stopping leaser server");
         if (running.compareAndSet(true, false)) {
             ready.set(false);
             leaser.stop();
             server.shutdown();
             server.awaitTermination(2L, TimeUnit.SECONDS);
-            logger.info("Stopped leaser server");
+            logger.info("Stopped leaser server in {} millis", (System.currentTimeMillis() - startMillis));
         } else {
             logger.error("Invalid attempt to stop an already stopped leaser server");
         }

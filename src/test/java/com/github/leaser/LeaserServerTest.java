@@ -35,7 +35,7 @@ public final class LeaserServerTest {
 
         while (!server.isRunning()) {
             try {
-                Thread.sleep(100L);
+                Thread.sleep(10L);
             } catch (InterruptedException interrupted) {
                 break;
             }
@@ -45,7 +45,7 @@ public final class LeaserServerTest {
         serverThread.interrupt();
         while (server.isRunning()) {
             try {
-                Thread.sleep(100L);
+                Thread.sleep(10L);
             } catch (InterruptedException interrupted) {
                 break;
             }
