@@ -196,7 +196,9 @@ public final class LeaserTest {
         final Leaser leaser = leaser(Mode.PERSISTENT, 7L, 1L);
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
+            assertTrue(leaser.isRunning());
             leaser.stop();
+            assertFalse(leaser.isRunning());
         }
     }
 

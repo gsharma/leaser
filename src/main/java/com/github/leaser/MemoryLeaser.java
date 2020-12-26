@@ -176,6 +176,11 @@ public final class MemoryLeaser implements Leaser {
         return Collections.unmodifiableSet(revokedLeases);
     }
 
+    @Override
+    public boolean isRunning() {
+        return running.get();
+    }
+
     /**
      * A simple auditor daemon for watching leases.
      */

@@ -16,41 +16,12 @@ public final class LeaserServerTest {
     @Test
     public void testLeaserServerLCM() throws Exception {
         final LeaserServer server = new LeaserServer();
-        final Thread serverThread = new Thread() {
-            @Override
-            public void run() {
-                try {
-                    server.start();
-                } catch (Exception serverProblem) {
-                    try {
-                        server.stop();
-                    } catch (Exception problem) { // ignore
-                    }
-                }
-            }
-        };
-        serverThread.setName("leaser-server");
-        serverThread.setDaemon(true);
-        serverThread.start();
-
-        while (!server.isRunning()) {
-            try {
-                Thread.sleep(10L);
-            } catch (InterruptedException interrupted) {
-                break;
-            }
+        for (int iter = 0; iter < 3; iter++) {
+            server.start();
+            assertTrue(server.isRunning());
+            server.stop();
+            assertFalse(server.isRunning());
         }
-        assertTrue(server.isRunning());
-
-        serverThread.interrupt();
-        while (server.isRunning()) {
-            try {
-                Thread.sleep(10L);
-            } catch (InterruptedException interrupted) {
-                break;
-            }
-        }
-        assertFalse(server.isRunning());
     }
 
 }

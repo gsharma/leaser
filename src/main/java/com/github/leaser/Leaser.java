@@ -80,6 +80,13 @@ public interface Leaser {
     void stop() throws LeaserException;
 
     /**
+     * Check if the Leaser is running.
+     * 
+     * @return
+     */
+    boolean isRunning();
+
+    /**
      * Factory method to create a MemoryLeaser instance.
      * 
      * @param maxTtlDaysAllowed

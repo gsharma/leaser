@@ -19,6 +19,7 @@ public final class LeaserServer {
     private final AtomicBoolean ready = new AtomicBoolean(false);
     private Leaser leaser;
     private Server server;
+    private Thread serverThread;
 
     public void start() throws Exception {
         final long startMillis = System.currentTimeMillis();
@@ -32,10 +33,21 @@ public final class LeaserServer {
             final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
             server = ServerBuilder.forPort(serverPort)
                     .addService(service).build();
-            server.start();
+            serverThread = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        server.start();
+                        server.awaitTermination();
+                    } catch (Exception serverProblem) {
+                    }
+                }
+            };
+            serverThread.setName("leaser-server");
+            serverThread.setDaemon(true);
+            serverThread.start();
             ready.set(true);
             logger.info("Started leaser server at port {} in {} millis", serverPort, (System.currentTimeMillis() - startMillis));
-            server.awaitTermination();
         } else {
             logger.error("Invalid attempt to start an already running leaser server");
         }
@@ -46,9 +58,14 @@ public final class LeaserServer {
         logger.info("Stopping leaser server");
         if (running.compareAndSet(true, false)) {
             ready.set(false);
-            leaser.stop();
-            server.shutdown();
-            server.awaitTermination(2L, TimeUnit.SECONDS);
+            if (leaser.isRunning()) {
+                leaser.stop();
+            }
+            if (!server.isTerminated()) {
+                server.shutdown();
+                server.awaitTermination(2L, TimeUnit.SECONDS);
+                serverThread.interrupt();
+            }
             logger.info("Stopped leaser server in {} millis", (System.currentTimeMillis() - startMillis));
         } else {
             logger.error("Invalid attempt to stop an already stopped leaser server");

@@ -245,6 +245,11 @@ public final class PersistentLeaser implements Leaser {
         }
     }
 
+    @Override
+    public boolean isRunning() {
+        return running.get();
+    }
+
     private boolean validateTtlSeconds(final long ttlSeconds) throws LeaserException {
         if (ttlSeconds <= 0L || ttlSeconds > maxTtlSecondsAllowed) {
             throw new LeaserException(Code.INVALID_LEASE_TTL, String.format("Invalid lease ttl seconds:%d", ttlSeconds));
