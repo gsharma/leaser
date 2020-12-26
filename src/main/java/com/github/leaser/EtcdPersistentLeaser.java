@@ -1,14 +1,10 @@
 package com.github.leaser;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -25,22 +21,17 @@ import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.EtcdCluster;
 import io.etcd.jetcd.launcher.EtcdClusterFactory;
-import io.etcd.jetcd.KV;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.options.DeleteOption;
 import io.etcd.jetcd.options.GetOption;
-import io.etcd.jetcd.options.PutOption;
-import io.etcd.jetcd.kv.GetResponse;
-import com.google.protobuf.ByteString;
-
 
 import com.github.leaser.LeaserException.Code;
 
 /**
- * etcd based implementation of the Leaser
+ * Etcd based implementation of the Leaser
  */
-public final class PersistentLeaserEtcd implements Leaser {
-    private static final Logger logger = LogManager.getLogger(PersistentLeaserEtcd.class.getSimpleName());
+public final class EtcdPersistentLeaser implements Leaser {
+    private static final Logger logger = LogManager.getLogger(EtcdPersistentLeaser.class.getSimpleName());
 
     private final String identity;
     private final AtomicBoolean running;
@@ -48,8 +39,9 @@ public final class PersistentLeaserEtcd implements Leaser {
     private final long maxTtlSecondsAllowed;
     private final long leaseAuditorIntervalSeconds;
     private LeaseAuditor leaseAuditor;
+    private EtcdCluster cluster;
     private Client client;
-    private final HashMap<Integer, String> table = new HashMap<Integer, String>();
+    private final Map<Integer, String> table = new HashMap<Integer, String>();
 
     private final Integer EXPIREDLEASES = 0;
     private final Integer LIVELEASES = 1;
@@ -57,7 +49,7 @@ public final class PersistentLeaserEtcd implements Leaser {
 
     private static Lock lockOperation = new ReentrantLock();
 
-    PersistentLeaserEtcd(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
+    EtcdPersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
@@ -72,10 +64,10 @@ public final class PersistentLeaserEtcd implements Leaser {
     @Override
     public void start() throws LeaserException {
         if (running.compareAndSet(false, true)) {
-            try { 
-                EtcdCluster etcd = EtcdClusterFactory.buildCluster(getClass().getSimpleName(), 1, false); 
-                etcd.start();
-                client = Client.builder().endpoints(etcd.getClientEndpoints()).build();
+            try {
+                cluster = EtcdClusterFactory.buildCluster(getClass().getSimpleName(), 1, false);
+                cluster.start();
+                client = Client.builder().endpoints(cluster.getClientEndpoints()).build();
             } catch (IllegalStateException excepIllegal) {
                 try {
                     // try to attach to the local daaemon
@@ -84,7 +76,7 @@ public final class PersistentLeaserEtcd implements Leaser {
                 } catch (NullPointerException | IllegalArgumentException excepInvalid) {
                     throw new LeaserException(Code.LEASER_INVALID_ARG, "Invalid arguments to attach to etcd daemon");
                 }
-            } 
+            }
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             logger.info("Started PersistentLeaser [{}]", identity);
@@ -92,7 +84,8 @@ public final class PersistentLeaserEtcd implements Leaser {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
     }
-    // For debuggin purposes - print entire table 
+
+    // For debuggin purposes - print entire table
     private void printLease(Integer tabId) {
         try {
             String prefix = table.get(tabId);
@@ -100,15 +93,14 @@ public final class PersistentLeaserEtcd implements Leaser {
             GetOption getOption = GetOption.newBuilder().withPrefix(prefixByteSequence).build();
             List<KeyValue> values = client.getKVClient().get(prefixByteSequence, getOption).get().getKvs();
             logger.info("Table:" + tabId + " size: " + values.size());
-            for (KeyValue kv: values) {
+            for (KeyValue kv : values) {
                 final byte[] serializedLeaseInfo = kv.getValue().getBytes();
                 LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
                 logger.info(leaseInfo);
             }
         } catch (InterruptedException excepInt) {
-           // nothing to do 
-        }
-        catch (ExecutionException excepExe) {
+            // nothing to do
+        } catch (ExecutionException excepExe) {
             logger.info("Exception " + excepExe.getCause());
             excepExe.printStackTrace();
         }
@@ -117,12 +109,12 @@ public final class PersistentLeaserEtcd implements Leaser {
     private List<KeyValue> getSetLeases(Integer tabId) {
         List<KeyValue> values = null;
         try {
-            String prefix = table.get(tabId); 
+            String prefix = table.get(tabId);
             ByteSequence prefixByteSequence = ByteSequence.from(prefix, StandardCharsets.UTF_8);
             GetOption getOption = GetOption.newBuilder().withPrefix(prefixByteSequence).build();
             values = client.getKVClient().get(prefixByteSequence, getOption).get().getKvs();
         } catch (InterruptedException excepInt) {
-           // nothing to do 
+            // nothing to do
         } catch (ExecutionException excepExe) {
             logger.info("Exception " + excepExe.getCause());
             excepExe.printStackTrace();
@@ -157,22 +149,23 @@ public final class PersistentLeaserEtcd implements Leaser {
         try {
             DeleteOption delOption = DeleteOption.newBuilder().withPrefix(prefixByteSequence).build();
             client.getKVClient().delete(ByteSequence.from(prefix, StandardCharsets.UTF_8), delOption).get();
-        } catch(InterruptedException excepInt) {
-            // nothing to do 
+        } catch (InterruptedException excepInt) {
+            // nothing to do
         } catch (ExecutionException excepExe) {
             logger.info("Exception " + excepExe.getCause());
             excepExe.printStackTrace();
         }
     }
+
     private boolean remLease(String resourceId, Integer tabId) {
-            boolean status = false;
-            String prefix = table.get(tabId) + resourceId;
-            ByteSequence prefixByteSequence = ByteSequence.from(prefix, StandardCharsets.UTF_8);
+        boolean status = false;
+        String prefix = table.get(tabId) + resourceId;
+        ByteSequence prefixByteSequence = ByteSequence.from(prefix, StandardCharsets.UTF_8);
         try {
             DeleteOption delOption = DeleteOption.newBuilder().withPrefix(prefixByteSequence).build();
             client.getKVClient().delete(ByteSequence.from(prefix, StandardCharsets.UTF_8), delOption).get();
             status = true;
-        } catch(InterruptedException excepInt) {
+        } catch (InterruptedException excepInt) {
             // nothing to do
         } catch (ExecutionException excepExe) {
             logger.info("Exception " + excepExe.getCause());
@@ -189,9 +182,9 @@ public final class PersistentLeaserEtcd implements Leaser {
         ByteSequence leaseByteSequence = ByteSequence.from(serializedLease);
         try {
             client.getKVClient().put(ByteSequence.from(prefix, StandardCharsets.UTF_8), leaseByteSequence).get();
-          status = true;
-        } catch(InterruptedException excepInt) {
-            // nothing to do 
+            status = true;
+        } catch (InterruptedException excepInt) {
+            // nothing to do
         } catch (ExecutionException excepExe) {
             logger.info("Exception " + excepExe.getCause());
             excepExe.printStackTrace();
@@ -201,7 +194,6 @@ public final class PersistentLeaserEtcd implements Leaser {
 
     @Override
     public LeaseInfo acquireLease(String ownerId, String resourceId, long ttlSeconds) throws LeaserException {
-       
         if (!running.get()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
@@ -219,10 +211,10 @@ public final class PersistentLeaserEtcd implements Leaser {
         ByteSequence leaseByteSequence = ByteSequence.from(serializedLease);
         try {
             client.getKVClient().put(ByteSequence.from(prefix, StandardCharsets.UTF_8), leaseByteSequence).get();
-        } catch(InterruptedException excepInt) {
+        } catch (InterruptedException excepInt) {
             return null;
         } catch (ExecutionException excepExe) {
-            //logger.info("Exception " + excepExe.getCause());
+            // logger.info("Exception " + excepExe.getCause());
             excepExe.printStackTrace();
             throw new LeaserException(Code.LEASE_PERSISTENCE_FAILURE, excepExe);
         }
@@ -252,14 +244,14 @@ public final class PersistentLeaserEtcd implements Leaser {
             // check if lease is expired, if yes, throw appropriate exception
             else {
                 leaseInfo = getLease(resourceId, EXPIREDLEASES);
-                if (leaseInfo != null)
-                {
-                    throw new LeaserException(Code.LEASE_ALREADY_EXPIRED, String.format("Lease for ownerId:%s and resourceId:%s is expired", ownerId, resourceId));
+                if (leaseInfo != null) {
+                    throw new LeaserException(Code.LEASE_ALREADY_EXPIRED,
+                            String.format("Lease for ownerId:%s and resourceId:%s is expired", ownerId, resourceId));
+                } else {
+                    throw new LeaserException(Code.LEASE_NOT_FOUND,
+                            String.format("Lease for ownerId:%s and resourceId:%s can't be found", ownerId, resourceId));
                 }
-                else {
-                    throw new LeaserException(Code.LEASE_NOT_FOUND, String.format("Lease for ownerId:%s and resourceId:%s can't be found", ownerId, resourceId));
-                }
-            } 
+            }
         } catch (LeaserException e) {
             throw e;
         } finally {
@@ -293,7 +285,7 @@ public final class PersistentLeaserEtcd implements Leaser {
         }
         return leaseInfo;
     }
- 
+
     @Override
     public LeaseInfo getLeaseInfo(String ownerId, String resourceId) throws LeaserException {
         LeaseInfo leaseInfo = null;
@@ -312,7 +304,7 @@ public final class PersistentLeaserEtcd implements Leaser {
         final Set<LeaseInfo> recentExpiredLeases = new LinkedHashSet<>();
         List<KeyValue> values = getSetLeases(EXPIREDLEASES);
 
-        for (KeyValue val: values) {
+        for (KeyValue val : values) {
             final byte[] serializedLeaseInfo = val.getValue().getBytes();
             if (serializedLeaseInfo != null) {
                 final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
@@ -328,7 +320,7 @@ public final class PersistentLeaserEtcd implements Leaser {
         List<KeyValue> values = getSetLeases(REVOKEDLEASES);
 
         if (values != null) {
-            for (KeyValue val: values) {
+            for (KeyValue val : values) {
                 final byte[] serializedLeaseInfo = val.getValue().getBytes();
                 if (serializedLeaseInfo != null) {
                     final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
@@ -347,6 +339,7 @@ public final class PersistentLeaserEtcd implements Leaser {
                 cleanTable(EXPIREDLEASES);
                 cleanTable(LIVELEASES);
                 cleanTable(REVOKEDLEASES);
+                cluster.close();
                 logger.info("Stopped PersistentLeaser [{}]", identity);
             } catch (Exception tiniProblem) {
                 throw new LeaserException(Code.LEASER_TINI_FAILURE, tiniProblem);
@@ -379,19 +372,19 @@ public final class PersistentLeaserEtcd implements Leaser {
         }
 
         @Override
-        public void run()  {
+        public void run() {
             while (!isInterrupted()) {
                 try {
                     logger.info("Auditing leases");
                     List<KeyValue> values = getSetLeases(LIVELEASES);
                     if (values != null) {
-                        for (KeyValue kv : values) {
+                        for (final KeyValue kv : values) {
                             final byte[] serializedResourceId = kv.getKey().getBytes();
                             final byte[] serializedLeaseInfo = kv.getValue().getBytes();
                             if (serializedResourceId != null && serializedLeaseInfo != null) {
                                 final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
                                 if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
-                                    try{
+                                    try {
                                         lockOperation.lock();
                                         // check again if lease is in the live leases table
                                         if (getLease(leaseInfo.getResourceId(), LIVELEASES) != null) {
@@ -399,8 +392,8 @@ public final class PersistentLeaserEtcd implements Leaser {
                                             addLease(leaseInfo, EXPIREDLEASES);
                                             logger.info("Expired {}", leaseInfo);
                                         }
-                                     } finally {
-                                         lockOperation.unlock();
+                                    } finally {
+                                        lockOperation.unlock();
                                     }
                                 }
                             }

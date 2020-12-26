@@ -29,8 +29,8 @@ import com.github.leaser.LeaserException.Code;
 /**
  * A rocksdb based implementation of the Leaser
  */
-public final class PersistentLeaser implements Leaser {
-    private static final Logger logger = LogManager.getLogger(PersistentLeaser.class.getSimpleName());
+public final class RocksdbPersistentLeaser implements Leaser {
+    private static final Logger logger = LogManager.getLogger(RocksdbPersistentLeaser.class.getSimpleName());
 
     private final String identity;
     private final AtomicBoolean running;
@@ -47,7 +47,7 @@ public final class PersistentLeaser implements Leaser {
     private ColumnFamilyHandle expiredLeases;
     private ColumnFamilyHandle revokedLeases;
 
-    PersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
+    RocksdbPersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);

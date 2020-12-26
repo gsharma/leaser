@@ -28,7 +28,7 @@ public final class LeaserServer {
         long auditorFrequencySeconds = 1L;
         logger.info("Starting leaser server at port {}", serverPort);
         if (running.compareAndSet(false, true)) {
-            leaser = Leaser.persistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+            leaser = Leaser.rocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
             leaser.start();
             final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
             server = ServerBuilder.forPort(serverPort)

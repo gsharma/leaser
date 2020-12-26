@@ -98,18 +98,25 @@ public interface Leaser {
     }
 
     /**
-     * Factory method to create a PersistentLeaser instance.
+     * Factory method to create a RocksDB-backed PersistentLeaser instance.
      * 
      * @param maxTtlDaysAllowed
      * @param auditorFrequencySeconds
      * @return
      */
-    static Leaser persistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        return new PersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+    static Leaser rocksdbPersistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        return new RocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
     }
 
-    static Leaser persistentLeaserEtcd(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        return new PersistentLeaserEtcd(maxTtlDaysAllowed, auditorFrequencySeconds);
+    /**
+     * Factory method to create an Etcd-backed PersistentLeaser instance.
+     * 
+     * @param maxTtlDaysAllowed
+     * @param auditorFrequencySeconds
+     * @return
+     */
+    static Leaser etcdPersistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        return new EtcdPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
     }
 
 }
