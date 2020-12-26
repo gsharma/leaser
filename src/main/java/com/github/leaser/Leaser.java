@@ -108,4 +108,8 @@ public interface Leaser {
         return new PersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
     }
 
+    static Leaser persistentLeaserEtcd(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        return new PersistentLeaserEtcd(maxTtlDaysAllowed, auditorFrequencySeconds);
+    }
+
 }

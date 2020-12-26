@@ -44,6 +44,8 @@ public final class LeaserException extends Exception {
         LEASE_PERSISTENCE_FAILURE("Issue encountered with lease persistence"),
         // 8.
         LEASER_TINI_FAILURE("Failed to cleanly shutdown the leaser"),
+        // 9.
+        LEASER_INVALID_ARG("Invalid arguments passed"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser internal failure. Check exception stacktrace for more details of the failure");
