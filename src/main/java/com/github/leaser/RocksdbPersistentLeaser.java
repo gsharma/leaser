@@ -34,6 +34,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
 
     private final String identity;
     private final AtomicBoolean running;
+    private final AtomicBoolean ready;
 
     private final long maxTtlSecondsAllowed;
     private final long leaseAuditorIntervalSeconds;
@@ -50,6 +51,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
     RocksdbPersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
+        this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
         this.leaseAuditorIntervalSeconds = leaseAuditorIntervalSeconds;
     }
@@ -86,6 +88,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
             }
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
+            ready.set(true);
             logger.info("Started PersistentLeaser [{}]", identity);
         } else {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
@@ -93,8 +96,8 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo acquireLease(String ownerId, String resourceId, long ttlSeconds) throws LeaserException {
-        if (!running.get()) {
+    public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlSeconds);
@@ -114,8 +117,8 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public boolean revokeLease(String ownerId, String resourceId) throws LeaserException {
-        if (!running.get()) {
+    public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         boolean revoked = false;
@@ -149,8 +152,8 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo extendLease(String ownerId, String resourceId, long ttlExtendBySeconds) throws LeaserException {
-        if (!running.get()) {
+    public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlExtendBySeconds);
@@ -176,7 +179,10 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo getLeaseInfo(String ownerId, String resourceId) throws LeaserException {
+    public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         LeaseInfo leaseInfo = null;
         try {
             final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
@@ -195,7 +201,10 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public Set<LeaseInfo> getExpiredLeases() {
+    public Set<LeaseInfo> getExpiredLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         final Set<LeaseInfo> recentExpiredLeases = new LinkedHashSet<>();
         final RocksIterator expiredLeasesIter = dataStore.newIterator(expiredLeases);
         for (expiredLeasesIter.seekToFirst(); expiredLeasesIter.isValid(); expiredLeasesIter.next()) {
@@ -209,7 +218,10 @@ public final class RocksdbPersistentLeaser implements Leaser {
     }
 
     @Override
-    public Set<LeaseInfo> getRevokedLeases() {
+    public Set<LeaseInfo> getRevokedLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         final Set<LeaseInfo> recentRevokedLeases = new LinkedHashSet<>();
         final RocksIterator revokedLeasesIter = dataStore.newIterator(revokedLeases);
         for (revokedLeasesIter.seekToFirst(); revokedLeasesIter.isValid(); revokedLeasesIter.next()) {
@@ -226,6 +238,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
     public void stop() throws LeaserException {
         if (running.compareAndSet(true, false)) {
             try {
+                ready.set(false);
                 leaseAuditor.interrupt();
                 // dataStore.dropColumnFamily(defaultCF);
                 dataStore.dropColumnFamily(liveLeases);
@@ -247,7 +260,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
 
     @Override
     public boolean isRunning() {
-        return running.get();
+        return running.get() && ready.get();
     }
 
     private boolean validateTtlSeconds(final long ttlSeconds) throws LeaserException {

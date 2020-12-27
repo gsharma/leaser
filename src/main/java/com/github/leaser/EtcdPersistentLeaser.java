@@ -35,13 +35,14 @@ public final class EtcdPersistentLeaser implements Leaser {
 
     private final String identity;
     private final AtomicBoolean running;
+    private final AtomicBoolean ready;
 
     private final long maxTtlSecondsAllowed;
     private final long leaseAuditorIntervalSeconds;
     private LeaseAuditor leaseAuditor;
     private EtcdCluster cluster;
     private Client client;
-    private final Map<Integer, String> table = new HashMap<Integer, String>();
+    private final Map<Integer, String> table = new HashMap<>();
 
     private final Integer EXPIREDLEASES = 0;
     private final Integer LIVELEASES = 1;
@@ -52,6 +53,7 @@ public final class EtcdPersistentLeaser implements Leaser {
     EtcdPersistentLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
+        this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
         this.leaseAuditorIntervalSeconds = leaseAuditorIntervalSeconds;
 
@@ -70,7 +72,7 @@ public final class EtcdPersistentLeaser implements Leaser {
                 client = Client.builder().endpoints(cluster.getClientEndpoints()).build();
             } catch (IllegalStateException excepIllegal) {
                 try {
-                    // try to attach to the local daaemon
+                    // try to attach to the local daemon
                     logger.info("etcd already started, listening on http://127.0.0.1:2379");
                     client = Client.builder().endpoints("http://127.0.0.1:2379").build();
                 } catch (NullPointerException | IllegalArgumentException excepInvalid) {
@@ -79,6 +81,7 @@ public final class EtcdPersistentLeaser implements Leaser {
             }
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
+            ready.set(true);
             logger.info("Started PersistentLeaser [{}]", identity);
         } else {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
@@ -193,8 +196,8 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo acquireLease(String ownerId, String resourceId, long ttlSeconds) throws LeaserException {
-        if (!running.get()) {
+    public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlSeconds);
@@ -222,8 +225,8 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public boolean revokeLease(String ownerId, String resourceId) throws LeaserException {
-        if (!running.get()) {
+    public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         boolean status = false;
@@ -261,8 +264,8 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo extendLease(String ownerId, String resourceId, long ttlExtendBySeconds) throws LeaserException {
-        if (!running.get()) {
+    public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlExtendBySeconds);
@@ -287,10 +290,11 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo getLeaseInfo(String ownerId, String resourceId) throws LeaserException {
-        LeaseInfo leaseInfo = null;
-
-        leaseInfo = getLease(resourceId, LIVELEASES);
+    public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
+        LeaseInfo leaseInfo = getLease(resourceId, LIVELEASES);
         if (leaseInfo != null) {
             if (!leaseInfo.getOwnerId().equals(ownerId)) {
                 leaseInfo = null;
@@ -300,7 +304,10 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public Set<LeaseInfo> getExpiredLeases() {
+    public Set<LeaseInfo> getExpiredLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         final Set<LeaseInfo> recentExpiredLeases = new LinkedHashSet<>();
         List<KeyValue> values = getSetLeases(EXPIREDLEASES);
 
@@ -315,10 +322,12 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
-    public Set<LeaseInfo> getRevokedLeases() {
+    public Set<LeaseInfo> getRevokedLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         final Set<LeaseInfo> recentRevokedLeases = new LinkedHashSet<>();
         List<KeyValue> values = getSetLeases(REVOKEDLEASES);
-
         if (values != null) {
             for (KeyValue val : values) {
                 final byte[] serializedLeaseInfo = val.getValue().getBytes();
@@ -335,6 +344,7 @@ public final class EtcdPersistentLeaser implements Leaser {
     public void stop() throws LeaserException {
         if (running.compareAndSet(true, false)) {
             try {
+                ready.set(false);
                 leaseAuditor.interrupt();
                 cleanTable(EXPIREDLEASES);
                 cleanTable(LIVELEASES);
@@ -351,7 +361,7 @@ public final class EtcdPersistentLeaser implements Leaser {
 
     @Override
     public boolean isRunning() {
-        return running.get();
+        return running.get() && ready.get();
     }
 
     private boolean validateTtlSeconds(final long ttlSeconds) throws LeaserException {

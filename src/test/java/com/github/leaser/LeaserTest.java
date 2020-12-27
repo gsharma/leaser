@@ -49,6 +49,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             int resourceCount = 1;
             final String ownerId = "unit-test";
             final long ttlSeconds = 1L;
@@ -60,7 +61,7 @@ public final class LeaserTest {
                 assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
             }
             while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
-                Thread.sleep(500L);
+                Thread.sleep(200L);
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
@@ -70,6 +71,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -80,6 +82,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             final int resourceCount = 20;
             final String ownerId = "unit-test";
             final long ttlSeconds = 1L;
@@ -102,24 +105,23 @@ public final class LeaserTest {
                 try {
                     assertTrue(leaser.revokeLease(ownerId, resourceId));
                 } catch (LeaserException excepExpired) {
-                    if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED)
-                    {
-                      logger.debug("expired!! code " + excepExpired.getCode()+ "  " + resourceId);
-                      expired++;
+                    if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED) {
+                        logger.debug("expired!! code " + excepExpired.getCode() + "  " + resourceId);
+                        expired++;
                     }
                 }
                 assertNull(leaser.getLeaseInfo(ownerId, resourceId));
                 testLeases.remove(iter);
             }
-            assertEquals(toRemove-expired, leaser.getRevokedLeases().size());
+            assertEquals(toRemove - expired, leaser.getRevokedLeases().size());
 
             for (iter = testLeases.size() - 1; iter >= 0; iter--) {
                 final String resourceId = testLeases.get(iter);
                 try {
                     assertTrue(leaser.revokeLease(ownerId, resourceId));
                 } catch (LeaserException excepExpired) {
-                    if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED) 
-                        logger.debug("expired!! code " + excepExpired.getCode()+ "  " + resourceId);
+                    if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED)
+                        logger.debug("expired!! code " + excepExpired.getCode() + "  " + resourceId);
                 }
                 assertNull(leaser.getLeaseInfo(ownerId, resourceId));
                 testLeases.remove(iter);
@@ -130,6 +132,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -140,6 +143,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             final Resource resource = new Resource();
             final long ttlSeconds = 1L;
             final String ownerId = "unit-test";
@@ -157,13 +161,14 @@ public final class LeaserTest {
             assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
 
             while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
-                Thread.sleep(500L);
+                Thread.sleep(200L);
             }
             assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
             assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -174,6 +179,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             // should blow-up
             leaser.start();
         } catch (LeaserException alreadyStartedException) {
@@ -181,6 +187,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -191,6 +198,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             final Resource resource = new Resource();
             final long ttlSeconds = 2;
             final String ownerId = "unit-test";
@@ -203,6 +211,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -212,7 +221,9 @@ public final class LeaserTest {
         final Leaser leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
+            assertTrue(leaser.isRunning());
             leaser.stop();
+            assertFalse(leaser.isRunning());
         }
     }
 
@@ -222,6 +233,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             Resource resourceOne = new Resource();
             long ttlSeconds = 2;
             String ownerId = "unit-test";
@@ -237,6 +249,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }
@@ -247,6 +260,7 @@ public final class LeaserTest {
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
+            assertTrue(leaser.isRunning());
             Resource resource = new Resource();
             long ttlSeconds = 2000;
             String ownerId = "unit-test";
@@ -257,6 +271,7 @@ public final class LeaserTest {
         } finally {
             if (leaser != null) {
                 leaser.stop();
+                assertFalse(leaser.isRunning());
             }
         }
     }

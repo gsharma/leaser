@@ -24,6 +24,7 @@ public final class MemoryLeaser implements Leaser {
 
     private final String identity;
     private final AtomicBoolean running;
+    private final AtomicBoolean ready;
     private final ConcurrentMap<String, LeaseInfo> liveLeases = new ConcurrentHashMap<>();
 
     private static final int expiredLeasesToKeep = 25;
@@ -53,6 +54,7 @@ public final class MemoryLeaser implements Leaser {
     MemoryLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
         this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
+        this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
         this.leaseAuditorIntervalSeconds = leaseAuditorIntervalSeconds;
     }
@@ -66,6 +68,7 @@ public final class MemoryLeaser implements Leaser {
             revokedLeases.clear();
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
+            ready.set(true);
             logger.info("Started MemoryLeaser [{}]", identity);
         } else {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
@@ -75,6 +78,7 @@ public final class MemoryLeaser implements Leaser {
     @Override
     public void stop() throws LeaserException {
         if (running.compareAndSet(true, false)) {
+            ready.set(false);
             leaseAuditor.interrupt();
             logger.info("Stopped MemoryLeaser [{}]", identity);
         } else {
@@ -84,7 +88,7 @@ public final class MemoryLeaser implements Leaser {
 
     @Override
     public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException {
-        if (!running.get()) {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlSeconds);
@@ -101,7 +105,7 @@ public final class MemoryLeaser implements Leaser {
 
     @Override
     public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
-        if (!running.get()) {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         boolean revoked = false;
@@ -130,7 +134,7 @@ public final class MemoryLeaser implements Leaser {
 
     @Override
     public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
-        if (!running.get()) {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlExtendBySeconds);
@@ -147,7 +151,7 @@ public final class MemoryLeaser implements Leaser {
 
     @Override
     public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException {
-        if (!running.get()) {
+        if (!isRunning()) {
             throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         LeaseInfo leaseInfo = liveLeases.get(resourceId);
@@ -167,18 +171,24 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public Set<LeaseInfo> getExpiredLeases() {
+    public Set<LeaseInfo> getExpiredLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         return Collections.unmodifiableSet(expiredLeases);
     }
 
     @Override
-    public Set<LeaseInfo> getRevokedLeases() {
+    public Set<LeaseInfo> getRevokedLeases() throws LeaserException {
+        if (!isRunning()) {
+            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+        }
         return Collections.unmodifiableSet(revokedLeases);
     }
 
     @Override
     public boolean isRunning() {
-        return running.get();
+        return running.get() && ready.get();
     }
 
     /**

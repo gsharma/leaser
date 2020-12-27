@@ -62,15 +62,17 @@ public interface Leaser {
      * Get all the expired leases still held in temporary buffer by the Leaser.
      * 
      * @return
+     * @throws LeaserException
      */
-    Set<LeaseInfo> getExpiredLeases();
+    Set<LeaseInfo> getExpiredLeases() throws LeaserException;
 
     /**
      * Get all the revoked leases still held in temporary buffer by the Leaser.
      * 
      * @return
+     * @throws LeaserException
      */
-    Set<LeaseInfo> getRevokedLeases();
+    Set<LeaseInfo> getRevokedLeases() throws LeaserException;
 
     /**
      * Stop the Leaser.

@@ -72,31 +72,39 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
     @Override
     public void getExpiredLeases(final GetExpiredLeasesRequest request,
             final StreamObserver<GetExpiredLeasesResponse> responseObserver) {
-        final Set<LeaseInfo> expiredLeaseInfos = leaser.getExpiredLeases();
-        final GetExpiredLeasesResponse.Builder responseBuilder = GetExpiredLeasesResponse.newBuilder();
-        if (expiredLeaseInfos != null && !expiredLeaseInfos.isEmpty()) {
-            for (final LeaseInfo expiredLeaseInfo : expiredLeaseInfos) {
-                responseBuilder.addExpiredLeases(leaseInfoToLease(expiredLeaseInfo));
+        try {
+            final Set<LeaseInfo> expiredLeaseInfos = leaser.getExpiredLeases();
+            final GetExpiredLeasesResponse.Builder responseBuilder = GetExpiredLeasesResponse.newBuilder();
+            if (expiredLeaseInfos != null && !expiredLeaseInfos.isEmpty()) {
+                for (final LeaseInfo expiredLeaseInfo : expiredLeaseInfos) {
+                    responseBuilder.addExpiredLeases(leaseInfoToLease(expiredLeaseInfo));
+                }
             }
+            final GetExpiredLeasesResponse response = responseBuilder.build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            responseObserver.onError(leaserProblem);
         }
-        final GetExpiredLeasesResponse response = responseBuilder.build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
     }
 
     @Override
     public void getRevokedLeases(final GetRevokedLeasesRequest request,
             final StreamObserver<GetRevokedLeasesResponse> responseObserver) {
-        final Set<LeaseInfo> revokedLeaseInfos = leaser.getRevokedLeases();
-        final GetRevokedLeasesResponse.Builder responseBuilder = GetRevokedLeasesResponse.newBuilder();
-        if (revokedLeaseInfos != null && !revokedLeaseInfos.isEmpty()) {
-            for (final LeaseInfo revokedLeaseInfo : revokedLeaseInfos) {
-                responseBuilder.addRevokedLeases(leaseInfoToLease(revokedLeaseInfo));
+        try {
+            final Set<LeaseInfo> revokedLeaseInfos = leaser.getRevokedLeases();
+            final GetRevokedLeasesResponse.Builder responseBuilder = GetRevokedLeasesResponse.newBuilder();
+            if (revokedLeaseInfos != null && !revokedLeaseInfos.isEmpty()) {
+                for (final LeaseInfo revokedLeaseInfo : revokedLeaseInfos) {
+                    responseBuilder.addRevokedLeases(leaseInfoToLease(revokedLeaseInfo));
+                }
             }
+            final GetRevokedLeasesResponse response = responseBuilder.build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (LeaserException leaserProblem) {
+            responseObserver.onError(leaserProblem);
         }
-        final GetRevokedLeasesResponse response = responseBuilder.build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
     }
 
     private static Lease leaseInfoToLease(final LeaseInfo leaseInfo) {
