@@ -1,5 +1,7 @@
 package com.github.leaser;
 
+import java.net.InetSocketAddress;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -7,7 +9,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+//import io.grpc.ServerBuilder;
+import io.grpc.netty.NettyServerBuilder;
 
 /**
  * RPC Server for serving clients of leaser.
@@ -17,39 +20,84 @@ public final class LeaserServer implements Lifecycle {
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean ready = new AtomicBoolean(false);
+
+    private final String serverHost;
+    private final int serverPort;
+
     private Leaser leaser;
     private Server server;
     private Thread serverThread;
 
+    private LeaserServer(final String serverHost, final int serverPort) {
+        this.serverHost = serverHost;
+        this.serverPort = serverPort;
+    }
+
+    public final static class LeaserServerBuilder {
+        private String serverHost;
+        private int serverPort;
+
+        public static LeaserServerBuilder newBuilder() {
+            return new LeaserServerBuilder();
+        }
+
+        public LeaserServerBuilder serverHost(final String serverHost) {
+            this.serverHost = serverHost;
+            return this;
+        }
+
+        public LeaserServerBuilder serverPort(final int serverPort) {
+            this.serverPort = serverPort;
+            return this;
+        }
+
+        public LeaserServer build() {
+            return new LeaserServer(serverHost, serverPort);
+        }
+
+        private LeaserServerBuilder() {
+        }
+    }
+
     @Override
     public void start() throws Exception {
         final long startMillis = System.currentTimeMillis();
-        int serverPort = 7070;
+        // TODO: these should be properties
         long maxTtlDaysAllowed = 7L;
         long auditorFrequencySeconds = 1L;
         logger.info("Starting leaser server [{}] at port {}", getIdentity().toString(), serverPort);
+        CountDownLatch serverReadyLatch = new CountDownLatch(1);
         if (running.compareAndSet(false, true)) {
-            leaser = Leaser.rocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-            leaser.start();
-            final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
-            server = ServerBuilder.forPort(serverPort)
-                    .addService(service).build();
             serverThread = new Thread() {
+                {
+                    setName("leaser-server");
+                    setDaemon(true);
+                }
+
                 @Override
                 public void run() {
                     try {
+                        leaser = Leaser.rocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                        leaser.start();
+                        final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
+                        server = NettyServerBuilder.forAddress(new InetSocketAddress(serverHost, serverPort))
+                                .addService(service).build();
                         server.start();
+                        serverReadyLatch.countDown();
                         server.awaitTermination();
                     } catch (Exception serverProblem) {
                     }
                 }
             };
-            serverThread.setName("leaser-server");
-            serverThread.setDaemon(true);
             serverThread.start();
-            ready.set(true);
-            logger.info("Started leaser server [{}] at port {} in {} millis", getIdentity().toString(), serverPort,
-                    (System.currentTimeMillis() - startMillis));
+            if (serverReadyLatch.await(2L, TimeUnit.SECONDS)) {
+                ready.set(true);
+                logger.info("Started leaser server [{}] at port {} in {} millis", getIdentity().toString(), serverPort,
+                        (System.currentTimeMillis() - startMillis));
+            } else {
+                logger.error("Failed to start leaser server [{}] at port {} in {} millis", getIdentity().toString(), serverPort,
+                        (System.currentTimeMillis() - startMillis));
+            }
         } else {
             logger.error("Invalid attempt to start an already running leaser server");
         }
@@ -81,7 +129,7 @@ public final class LeaserServer implements Lifecycle {
     }
 
     public static void main(String[] args) throws Exception {
-        final LeaserServer leaserServer = new LeaserServer();
+        final LeaserServer leaserServer = new LeaserServer("localhost", 7070);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

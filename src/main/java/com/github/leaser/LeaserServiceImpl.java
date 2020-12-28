@@ -112,7 +112,8 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
         if (leaseInfo != null) {
             lease = Lease.newBuilder().setLeaseId(leaseInfo.getLeaseId()).setCreated(leaseInfo.getCreated().getTime())
                     .setOwnerId(leaseInfo.getOwnerId()).setResourceId(leaseInfo.getResourceId()).setTtlSeconds(leaseInfo.getTtlSeconds())
-                    .setRevision(leaseInfo.getRevision()).setLastUpdated(leaseInfo.getLastUpdate().getTime())
+                    .setRevision(leaseInfo.getRevision())
+                    .setLastUpdated(leaseInfo.getLastUpdate() != null ? leaseInfo.getLastUpdate().getTime() : 0L)
                     .setExpirationEpochSeconds(leaseInfo.getExpirationEpochSeconds()).build();
         }
         return lease;

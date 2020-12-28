@@ -10,17 +10,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import com.github.leaser.LeaserServerException.Code;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.github.leaser.LeaserServerException.Code;
-
 /**
- * Tests to keep the sanity of Leaser
+ * Unit tests to keep the sanity of Leaser
  */
-public final class LeaserTest {
-    private static final Logger logger = LogManager.getLogger(LeaserTest.class.getSimpleName());
+public final class LeaserUnitTest {
+    private static final Logger logger = LogManager.getLogger(LeaserUnitTest.class.getSimpleName());
 
     private enum Mode {
         PERSISTENT_ROCKSDB, MEMORY, PERSISTENT_ETCD

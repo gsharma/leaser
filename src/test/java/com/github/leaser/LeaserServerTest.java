@@ -7,6 +7,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import com.github.leaser.LeaserServer.LeaserServerBuilder;
+
 /**
  * Tests to keep the sanity of LeaserServer
  */
@@ -15,7 +17,7 @@ public final class LeaserServerTest {
 
     @Test
     public void testLeaserServerLCM() throws Exception {
-        final LeaserServer server = new LeaserServer();
+        final LeaserServer server = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070).build();
         for (int iter = 0; iter < 3; iter++) {
             server.start();
             assertTrue(server.isRunning());
