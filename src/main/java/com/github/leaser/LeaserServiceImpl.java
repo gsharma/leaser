@@ -23,7 +23,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final AcquireLeaseResponse response = AcquireLeaseResponse.newBuilder().setLease(lease).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }
@@ -36,7 +36,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final RevokeLeaseResponse response = RevokeLeaseResponse.newBuilder().setRevoked(revoked).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }
@@ -50,7 +50,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final ExtendLeaseResponse response = ExtendLeaseResponse.newBuilder().setLease(lease).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }
@@ -64,7 +64,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final GetLeaseInfoResponse response = GetLeaseInfoResponse.newBuilder().setLease(lease).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }
@@ -83,7 +83,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final GetExpiredLeasesResponse response = responseBuilder.build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }
@@ -102,7 +102,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             final GetRevokedLeasesResponse response = responseBuilder.build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (LeaserException leaserProblem) {
+        } catch (LeaserServerException leaserProblem) {
             responseObserver.onError(leaserProblem);
         }
     }

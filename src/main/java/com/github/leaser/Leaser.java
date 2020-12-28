@@ -5,14 +5,7 @@ import java.util.Set;
 /**
  * A simple service to manage resource leases.
  */
-public interface Leaser {
-
-    /**
-     * Start the Leaser.
-     * 
-     * @throws LeaserException
-     */
-    void start() throws LeaserException;
+public interface Leaser extends Lifecycle {
 
     /**
      * Acquire a lease on the given resourceId to be held by ownerId for the duration of ttlSeconds. Unless the lease is extended via
@@ -22,9 +15,9 @@ public interface Leaser {
      * @param resourceId
      * @param ttlSeconds
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException;
+    LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserServerException;
 
     /**
      * Revoke a lease held by ownerId on resourceId.
@@ -32,9 +25,9 @@ public interface Leaser {
      * @param ownerId
      * @param resourceId
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException;
+    boolean revokeLease(final String ownerId, final String resourceId) throws LeaserServerException;
 
     /**
      * Extend the lease duration held on resourceId by ownerId by an additional ttlExtendBySeconds. Return the LeaseInfo reflecting updated lease
@@ -44,9 +37,9 @@ public interface Leaser {
      * @param resourceId
      * @param ttlExtendBySeconds
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException;
+    LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserServerException;
 
     /**
      * Obtain the LeaseInfo as metadata for the lease held by ownerId on resourceId.
@@ -54,39 +47,25 @@ public interface Leaser {
      * @param ownerId
      * @param resourceId
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException;
+    LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserServerException;
 
     /**
      * Get all the expired leases still held in temporary buffer by the Leaser.
      * 
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    Set<LeaseInfo> getExpiredLeases() throws LeaserException;
+    Set<LeaseInfo> getExpiredLeases() throws LeaserServerException;
 
     /**
      * Get all the revoked leases still held in temporary buffer by the Leaser.
      * 
      * @return
-     * @throws LeaserException
+     * @throws LeaserServerException
      */
-    Set<LeaseInfo> getRevokedLeases() throws LeaserException;
-
-    /**
-     * Stop the Leaser.
-     * 
-     * @throws LeaserException
-     */
-    void stop() throws LeaserException;
-
-    /**
-     * Check if the Leaser is running.
-     * 
-     * @return
-     */
-    boolean isRunning();
+    Set<LeaseInfo> getRevokedLeases() throws LeaserServerException;
 
     /**
      * Factory method to create a MemoryLeaser instance.

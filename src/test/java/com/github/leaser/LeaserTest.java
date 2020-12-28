@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.github.leaser.LeaserException.Code;
+import com.github.leaser.LeaserServerException.Code;
 
 /**
  * Tests to keep the sanity of Leaser
@@ -104,7 +104,7 @@ public final class LeaserTest {
                 final String resourceId = testLeases.get(iter);
                 try {
                     assertTrue(leaser.revokeLease(ownerId, resourceId));
-                } catch (LeaserException excepExpired) {
+                } catch (LeaserServerException excepExpired) {
                     if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED) {
                         logger.debug("expired!! code " + excepExpired.getCode() + "  " + resourceId);
                         expired++;
@@ -119,7 +119,7 @@ public final class LeaserTest {
                 final String resourceId = testLeases.get(iter);
                 try {
                     assertTrue(leaser.revokeLease(ownerId, resourceId));
-                } catch (LeaserException excepExpired) {
+                } catch (LeaserServerException excepExpired) {
                     if (excepExpired.getCode() == Code.LEASE_ALREADY_EXPIRED)
                         logger.debug("expired!! code " + excepExpired.getCode() + "  " + resourceId);
                 }
@@ -174,7 +174,7 @@ public final class LeaserTest {
     }
 
     @Test // (expected = LeaserException.class)
-    public void testLeaserReinit() throws LeaserException {
+    public void testLeaserReinit() throws Exception {
         Leaser leaser = null;
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
@@ -182,8 +182,8 @@ public final class LeaserTest {
             assertTrue(leaser.isRunning());
             // should blow-up
             leaser.start();
-        } catch (LeaserException alreadyStartedException) {
-            assertEquals(LeaserException.Code.INVALID_LEASER_LCM, alreadyStartedException.getCode());
+        } catch (LeaserServerException alreadyStartedException) {
+            assertEquals(LeaserServerException.Code.INVALID_LEASER_LCM, alreadyStartedException.getCode());
         } finally {
             if (leaser != null) {
                 leaser.stop();
@@ -193,7 +193,7 @@ public final class LeaserTest {
     }
 
     @Test
-    public void testIllegalLeaseAcquisition() throws LeaserException {
+    public void testIllegalLeaseAcquisition() throws Exception {
         Leaser leaser = null;
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
@@ -206,8 +206,8 @@ public final class LeaserTest {
             assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
             assertEquals(1, leaseInfo.getRevision());
             assertNull(leaseInfo.getLastUpdate());
-        } catch (LeaserException leaseAlreadyTakenException) {
-            assertEquals(LeaserException.Code.LEASE_ALREADY_EXISTS, leaseAlreadyTakenException.getCode());
+        } catch (LeaserServerException leaseAlreadyTakenException) {
+            assertEquals(LeaserServerException.Code.LEASE_ALREADY_EXISTS, leaseAlreadyTakenException.getCode());
         } finally {
             if (leaser != null) {
                 leaser.stop();
@@ -217,7 +217,7 @@ public final class LeaserTest {
     }
 
     @Test
-    public void testLeaserLCM() throws LeaserException {
+    public void testLeaserLCM() throws Exception {
         final Leaser leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
@@ -228,7 +228,7 @@ public final class LeaserTest {
     }
 
     @Test
-    public void testLeaseInfoComparison() throws LeaserException {
+    public void testLeaseInfoComparison() throws Exception {
         Leaser leaser = null;
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
@@ -255,7 +255,7 @@ public final class LeaserTest {
     }
 
     @Test
-    public void testLeaseInfoSerDe() throws LeaserException {
+    public void testLeaseInfoSerDe() throws Exception {
         Leaser leaser = null;
         try {
             leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);

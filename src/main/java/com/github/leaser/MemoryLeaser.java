@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -14,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.github.leaser.LeaserException.Code;
+import com.github.leaser.LeaserServerException.Code;
 
 /**
  * An in-memory implementation for the Leaser.
@@ -22,7 +21,6 @@ import com.github.leaser.LeaserException.Code;
 public final class MemoryLeaser implements Leaser {
     private static final Logger logger = LogManager.getLogger(Leaser.class.getSimpleName());
 
-    private final String identity;
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
     private final ConcurrentMap<String, LeaseInfo> liveLeases = new ConcurrentHashMap<>();
@@ -52,7 +50,6 @@ public final class MemoryLeaser implements Leaser {
     private LeaseAuditor leaseAuditor;
 
     MemoryLeaser(final long maxTtlDaysAllowed, final long leaseAuditorIntervalSeconds) {
-        this.identity = UUID.randomUUID().toString();
         this.running = new AtomicBoolean(false);
         this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
@@ -60,7 +57,7 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public void start() throws LeaserException {
+    public void start() throws LeaserServerException {
         if (running.compareAndSet(false, true)) {
             // cleanly handle resumption cases
             liveLeases.clear();
@@ -69,27 +66,27 @@ public final class MemoryLeaser implements Leaser {
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             ready.set(true);
-            logger.info("Started MemoryLeaser [{}]", identity);
+            logger.info("Started MemoryLeaser [{}]", getIdentity().toString());
         } else {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
     }
 
     @Override
-    public void stop() throws LeaserException {
+    public void stop() throws LeaserServerException {
         if (running.compareAndSet(true, false)) {
             ready.set(false);
             leaseAuditor.interrupt();
-            logger.info("Stopped MemoryLeaser [{}]", identity);
+            logger.info("Stopped MemoryLeaser [{}]", getIdentity().toString());
         } else {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to stop an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to stop an already stopped leaser");
         }
     }
 
     @Override
-    public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserException {
+    public LeaseInfo acquireLease(final String ownerId, final String resourceId, final long ttlSeconds) throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlSeconds);
         LeaseInfo leaseInfo = null;
@@ -98,15 +95,15 @@ public final class MemoryLeaser implements Leaser {
             liveLeases.put(resourceId, leaseInfo);
             logger.info("Acquired {}", leaseInfo);
         } else {
-            throw new LeaserException(Code.LEASE_ALREADY_EXISTS, String.format("Lease already taken for resourceId:%s", resourceId));
+            throw new LeaserServerException(Code.LEASE_ALREADY_EXISTS, String.format("Lease already taken for resourceId:%s", resourceId));
         }
         return leaseInfo;
     }
 
     @Override
-    public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserException {
+    public boolean revokeLease(final String ownerId, final String resourceId) throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         boolean revoked = false;
         final LeaseInfo leaseInfo = liveLeases.get(resourceId);
@@ -114,7 +111,7 @@ public final class MemoryLeaser implements Leaser {
         if (leaseInfo != null && leaseInfo.getOwnerId().equals(ownerId) && leaseInfo.getResourceId().equals(resourceId)) {
             // check expiration
             if (expiredLeases.contains(leaseInfo)) {
-                throw new LeaserException(Code.LEASE_ALREADY_EXPIRED,
+                throw new LeaserServerException(Code.LEASE_ALREADY_EXPIRED,
                         String.format("Lease for ownerId:%s and resourceId:%s is already expired", ownerId, resourceId));
             }
             // now revoke
@@ -126,16 +123,16 @@ public final class MemoryLeaser implements Leaser {
                 revoked = true;
             }
         } else {
-            throw new LeaserException(Code.LEASE_NOT_FOUND,
+            throw new LeaserServerException(Code.LEASE_NOT_FOUND,
                     String.format("Lease for ownerId:%s and resourceId:%s can't be found", ownerId, resourceId));
         }
         return revoked;
     }
 
     @Override
-    public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserException {
+    public LeaseInfo extendLease(final String ownerId, final String resourceId, final long ttlExtendBySeconds) throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         validateTtlSeconds(ttlExtendBySeconds);
         final LeaseInfo leaseInfo = liveLeases.get(resourceId);
@@ -150,9 +147,9 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
-    public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserException {
+    public LeaseInfo getLeaseInfo(final String ownerId, final String resourceId) throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         LeaseInfo leaseInfo = liveLeases.get(resourceId);
         if (leaseInfo != null && ownerId.equals(leaseInfo.getOwnerId())) {
@@ -163,25 +160,25 @@ public final class MemoryLeaser implements Leaser {
         return leaseInfo;
     }
 
-    private boolean validateTtlSeconds(final long ttlSeconds) throws LeaserException {
+    private boolean validateTtlSeconds(final long ttlSeconds) throws LeaserServerException {
         if (ttlSeconds <= 0L || ttlSeconds > maxTtlSecondsAllowed) {
-            throw new LeaserException(Code.INVALID_LEASE_TTL, String.format("Invalid lease ttl seconds:%d", ttlSeconds));
+            throw new LeaserServerException(Code.INVALID_LEASE_TTL, String.format("Invalid lease ttl seconds:%d", ttlSeconds));
         }
         return true;
     }
 
     @Override
-    public Set<LeaseInfo> getExpiredLeases() throws LeaserException {
+    public Set<LeaseInfo> getExpiredLeases() throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         return Collections.unmodifiableSet(expiredLeases);
     }
 
     @Override
-    public Set<LeaseInfo> getRevokedLeases() throws LeaserException {
+    public Set<LeaseInfo> getRevokedLeases() throws LeaserServerException {
         if (!isRunning()) {
-            throw new LeaserException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
+            throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to operate an already stopped leaser");
         }
         return Collections.unmodifiableSet(revokedLeases);
     }
