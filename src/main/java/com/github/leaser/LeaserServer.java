@@ -8,6 +8,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.leaser.Leaser.LeaserMode;
+import com.github.leaser.LeaserServerException.Code;
+
 import io.grpc.Server;
 //import io.grpc.ServerBuilder;
 import io.grpc.netty.NettyServerBuilder;
@@ -23,19 +26,29 @@ public final class LeaserServer implements Lifecycle {
 
     private final String serverHost;
     private final int serverPort;
+    private final LeaserMode leaserMode;
+    private final long maxTtlDaysAllowed;
+    private final long auditorFrequencySeconds;
 
     private Leaser leaser;
     private Server server;
     private Thread serverThread;
 
-    private LeaserServer(final String serverHost, final int serverPort) {
+    private LeaserServer(final String serverHost, final int serverPort, final LeaserMode leaserMode, final long maxTtlDaysAllowed,
+            final long auditorFrequencySeconds) {
         this.serverHost = serverHost;
         this.serverPort = serverPort;
+        this.leaserMode = leaserMode;
+        this.maxTtlDaysAllowed = maxTtlDaysAllowed;
+        this.auditorFrequencySeconds = auditorFrequencySeconds;
     }
 
     public final static class LeaserServerBuilder {
         private String serverHost;
         private int serverPort;
+        private LeaserMode leaserMode;
+        private long maxTtlDaysAllowed;
+        private long auditorFrequencySeconds;
 
         public static LeaserServerBuilder newBuilder() {
             return new LeaserServerBuilder();
@@ -51,8 +64,27 @@ public final class LeaserServer implements Lifecycle {
             return this;
         }
 
-        public LeaserServer build() {
-            return new LeaserServer(serverHost, serverPort);
+        public LeaserServerBuilder leaserMode(final LeaserMode leaserMode) {
+            this.leaserMode = leaserMode;
+            return this;
+        }
+
+        public LeaserServerBuilder maxTtlDaysAllowed(final long maxTtlDaysAllowed) {
+            this.maxTtlDaysAllowed = maxTtlDaysAllowed;
+            return this;
+        }
+
+        public LeaserServerBuilder auditorFrequencySeconds(final long auditorFrequencySeconds) {
+            this.auditorFrequencySeconds = auditorFrequencySeconds;
+            return this;
+        }
+
+        public LeaserServer build() throws LeaserServerException {
+            if (serverHost == null || serverPort == 0 || leaserMode == null || maxTtlDaysAllowed == 0L || auditorFrequencySeconds == 0L) {
+                throw new LeaserServerException(Code.LEASER_INIT_FAILURE,
+                        "serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds all need to be specified");
+            }
+            return new LeaserServer(serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
         }
 
         private LeaserServerBuilder() {
@@ -62,11 +94,8 @@ public final class LeaserServer implements Lifecycle {
     @Override
     public void start() throws Exception {
         final long startMillis = System.currentTimeMillis();
-        // TODO: these should be properties
-        long maxTtlDaysAllowed = 7L;
-        long auditorFrequencySeconds = 1L;
         logger.info("Starting leaser server [{}] at port {}", getIdentity().toString(), serverPort);
-        CountDownLatch serverReadyLatch = new CountDownLatch(1);
+        final CountDownLatch serverReadyLatch = new CountDownLatch(1);
         if (running.compareAndSet(false, true)) {
             serverThread = new Thread() {
                 {
@@ -77,7 +106,7 @@ public final class LeaserServer implements Lifecycle {
                 @Override
                 public void run() {
                     try {
-                        leaser = Leaser.rocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                        leaser = Leaser.getLeaser(leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
                         leaser.start();
                         final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
                         server = NettyServerBuilder.forAddress(new InetSocketAddress(serverHost, serverPort))
@@ -129,7 +158,7 @@ public final class LeaserServer implements Lifecycle {
     }
 
     public static void main(String[] args) throws Exception {
-        final LeaserServer leaserServer = new LeaserServer("localhost", 7070);
+        final LeaserServer leaserServer = new LeaserServer("localhost", 7070, LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

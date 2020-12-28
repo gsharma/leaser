@@ -10,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import com.github.leaser.Leaser.LeaserMode;
 import com.github.leaser.LeaserServerException.Code;
 
 import java.util.ArrayList;
@@ -22,32 +23,11 @@ import java.util.Random;
 public final class LeaserUnitTest {
     private static final Logger logger = LogManager.getLogger(LeaserUnitTest.class.getSimpleName());
 
-    private enum Mode {
-        PERSISTENT_ROCKSDB, MEMORY, PERSISTENT_ETCD
-    };
-
-    // Run any test with either Persistent or Memory leaser
-    private static Leaser leaser(final Mode mode, final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        Leaser leaser = null;
-        switch (mode) {
-            case PERSISTENT_ROCKSDB:
-                leaser = Leaser.rocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-                break;
-            case PERSISTENT_ETCD:
-                leaser = Leaser.etcdPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-                break;
-            case MEMORY:
-                leaser = Leaser.memoryLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-                break;
-        }
-        return leaser;
-    }
-
     @Test
     public void testLeaseAcquisition() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             int resourceCount = 1;
@@ -80,7 +60,7 @@ public final class LeaserUnitTest {
     public void testLeaseRevocation() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             final int resourceCount = 20;
@@ -141,7 +121,7 @@ public final class LeaserUnitTest {
     public void testLeaseExtension() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             final Resource resource = new Resource();
@@ -177,7 +157,7 @@ public final class LeaserUnitTest {
     public void testLeaserReinit() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             // should blow-up
@@ -196,7 +176,7 @@ public final class LeaserUnitTest {
     public void testIllegalLeaseAcquisition() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             final Resource resource = new Resource();
@@ -218,7 +198,7 @@ public final class LeaserUnitTest {
 
     @Test
     public void testLeaserLCM() throws Exception {
-        final Leaser leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+        final Leaser leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
         for (int iter = 0; iter < 3; iter++) {
             leaser.start();
             assertTrue(leaser.isRunning());
@@ -231,7 +211,7 @@ public final class LeaserUnitTest {
     public void testLeaseInfoComparison() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             Resource resourceOne = new Resource();
@@ -258,7 +238,7 @@ public final class LeaserUnitTest {
     public void testLeaseInfoSerDe() throws Exception {
         Leaser leaser = null;
         try {
-            leaser = leaser(Mode.PERSISTENT_ROCKSDB, 7L, 1L);
+            leaser = Leaser.getLeaser(LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
             leaser.start();
             assertTrue(leaser.isRunning());
             Resource resource = new Resource();

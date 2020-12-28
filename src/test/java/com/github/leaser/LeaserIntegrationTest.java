@@ -11,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import com.github.leaser.Leaser.LeaserMode;
 import com.github.leaser.LeaserServer.LeaserServerBuilder;
 
 /**
@@ -35,7 +36,9 @@ public class LeaserIntegrationTest {
         LeaserServer server = null;
         LeaserClient client = null;
         try {
-            server = LeaserServerBuilder.newBuilder().serverHost(serverHost).serverPort(serverPort).build();
+            server = LeaserServerBuilder.newBuilder().serverHost(serverHost).serverPort(serverPort)
+                    .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
+                    .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
             server.start();
             assertTrue(server.isRunning());
 

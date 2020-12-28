@@ -67,37 +67,24 @@ public interface Leaser extends Lifecycle {
      */
     Set<LeaseInfo> getRevokedLeases() throws LeaserServerException;
 
-    /**
-     * Factory method to create a MemoryLeaser instance.
-     * 
-     * @param maxTtlDaysAllowed
-     * @param auditorFrequencySeconds
-     * @return
-     */
-    static Leaser memoryLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        return new MemoryLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-    }
+    enum LeaserMode {
+        PERSISTENT_ROCKSDB, MEMORY, PERSISTENT_ETCD
+    };
 
-    /**
-     * Factory method to create a RocksDB-backed PersistentLeaser instance.
-     * 
-     * @param maxTtlDaysAllowed
-     * @param auditorFrequencySeconds
-     * @return
-     */
-    static Leaser rocksdbPersistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        return new RocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
-    }
-
-    /**
-     * Factory method to create an Etcd-backed PersistentLeaser instance.
-     * 
-     * @param maxTtlDaysAllowed
-     * @param auditorFrequencySeconds
-     * @return
-     */
-    static Leaser etcdPersistentLeaser(final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
-        return new EtcdPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+    static Leaser getLeaser(final LeaserMode mode, final long maxTtlDaysAllowed, final long auditorFrequencySeconds) {
+        Leaser leaser = null;
+        switch (mode) {
+            case PERSISTENT_ROCKSDB:
+                leaser = new RocksdbPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                break;
+            case PERSISTENT_ETCD:
+                leaser = new EtcdPersistentLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                break;
+            case MEMORY:
+                leaser = new MemoryLeaser(maxTtlDaysAllowed, auditorFrequencySeconds);
+                break;
+        }
+        return leaser;
     }
 
 }

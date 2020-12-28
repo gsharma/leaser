@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
+import com.github.leaser.Leaser.LeaserMode;
 import com.github.leaser.LeaserServer.LeaserServerBuilder;
 
 /**
@@ -17,7 +18,9 @@ public final class LeaserServerTest {
 
     @Test
     public void testLeaserServerLCM() throws Exception {
-        final LeaserServer server = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070).build();
+        final LeaserServer server = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070)
+                .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
         for (int iter = 0; iter < 3; iter++) {
             server.start();
             assertTrue(server.isRunning());
