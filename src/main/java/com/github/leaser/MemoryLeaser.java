@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -20,6 +21,8 @@ import com.github.leaser.LeaserServerException.Code;
  */
 public final class MemoryLeaser implements Leaser {
     private static final Logger logger = LogManager.getLogger(Leaser.class.getSimpleName());
+
+    private final String identity = UUID.randomUUID().toString();
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
@@ -57,6 +60,11 @@ public final class MemoryLeaser implements Leaser {
     }
 
     @Override
+    public String getIdentity() {
+        return identity;
+    }
+
+    @Override
     public void start() throws LeaserServerException {
         if (running.compareAndSet(false, true)) {
             // cleanly handle resumption cases
@@ -66,7 +74,7 @@ public final class MemoryLeaser implements Leaser {
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             ready.set(true);
-            logger.info("Started MemoryLeaser [{}]", getIdentity().toString());
+            logger.info("Started MemoryLeaser [{}]", getIdentity());
         } else {
             throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
@@ -77,7 +85,7 @@ public final class MemoryLeaser implements Leaser {
         if (running.compareAndSet(true, false)) {
             ready.set(false);
             leaseAuditor.interrupt();
-            logger.info("Stopped MemoryLeaser [{}]", getIdentity().toString());
+            logger.info("Stopped MemoryLeaser [{}]", getIdentity());
         } else {
             throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to stop an already stopped leaser");
         }

@@ -1,6 +1,7 @@
 package com.github.leaser;
 
 import java.net.InetSocketAddress;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,6 +21,8 @@ import io.grpc.netty.NettyServerBuilder;
  */
 public final class LeaserServer implements Lifecycle {
     private static final Logger logger = LogManager.getLogger(LeaserServer.class.getSimpleName());
+
+    private final String identity = UUID.randomUUID().toString();
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean ready = new AtomicBoolean(false);
@@ -92,11 +95,14 @@ public final class LeaserServer implements Lifecycle {
     }
 
     @Override
+    public String getIdentity() {
+        return identity;
+    }
+
+    @Override
     public void start() throws Exception {
-        final long startMillis = System.currentTimeMillis();
-        logger.info("Starting leaser server [{}] at port {}", getIdentity().toString(), serverPort);
-        final CountDownLatch serverReadyLatch = new CountDownLatch(1);
         if (running.compareAndSet(false, true)) {
+            final CountDownLatch serverReadyLatch = new CountDownLatch(1);
             serverThread = new Thread() {
                 {
                     setName("leaser-server");
@@ -105,6 +111,8 @@ public final class LeaserServer implements Lifecycle {
 
                 @Override
                 public void run() {
+                    final long startMillis = System.currentTimeMillis();
+                    logger.info("Starting LeaserServer [{}] at port {}", getIdentity(), serverPort);
                     try {
                         leaser = Leaser.getLeaser(leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
                         leaser.start();
@@ -113,29 +121,30 @@ public final class LeaserServer implements Lifecycle {
                                 .addService(service).build();
                         server.start();
                         serverReadyLatch.countDown();
+                        logger.info("Started LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,
+                                (System.currentTimeMillis() - startMillis));
                         server.awaitTermination();
                     } catch (Exception serverProblem) {
+                        logger.error("Failed to start LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,
+                                (System.currentTimeMillis() - startMillis), serverProblem);
                     }
                 }
             };
             serverThread.start();
             if (serverReadyLatch.await(2L, TimeUnit.SECONDS)) {
                 ready.set(true);
-                logger.info("Started leaser server [{}] at port {} in {} millis", getIdentity().toString(), serverPort,
-                        (System.currentTimeMillis() - startMillis));
             } else {
-                logger.error("Failed to start leaser server [{}] at port {} in {} millis", getIdentity().toString(), serverPort,
-                        (System.currentTimeMillis() - startMillis));
+                logger.error("Failed to start LeaserServer [{}] at port", getIdentity(), serverPort);
             }
         } else {
-            logger.error("Invalid attempt to start an already running leaser server");
+            logger.error("Invalid attempt to start an already running LeaserServer");
         }
     }
 
     @Override
     public void stop() throws Exception {
         final long startMillis = System.currentTimeMillis();
-        logger.info("Stopping leaser server [{}]", getIdentity().toString());
+        logger.info("Stopping LeaserServer [{}]", getIdentity());
         if (running.compareAndSet(true, false)) {
             ready.set(false);
             if (leaser.isRunning()) {
@@ -146,9 +155,9 @@ public final class LeaserServer implements Lifecycle {
                 server.awaitTermination(2L, TimeUnit.SECONDS);
                 serverThread.interrupt();
             }
-            logger.info("Stopped leaser server [{}] in {} millis", getIdentity().toString(), (System.currentTimeMillis() - startMillis));
+            logger.info("Stopped LeaserServer [{}] in {} millis", getIdentity(), (System.currentTimeMillis() - startMillis));
         } else {
-            logger.error("Invalid attempt to stop an already stopped leaser server");
+            logger.error("Invalid attempt to stop an already stopped LeaserServer");
         }
     }
 

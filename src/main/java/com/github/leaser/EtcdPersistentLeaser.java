@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +32,8 @@ import com.github.leaser.LeaserServerException.Code;
  */
 public final class EtcdPersistentLeaser implements Leaser {
     private static final Logger logger = LogManager.getLogger(EtcdPersistentLeaser.class.getSimpleName());
+
+    private final String identity = UUID.randomUUID().toString();
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
@@ -62,6 +65,11 @@ public final class EtcdPersistentLeaser implements Leaser {
     }
 
     @Override
+    public String getIdentity() {
+        return identity;
+    }
+
+    @Override
     public void start() throws LeaserServerException {
         if (running.compareAndSet(false, true)) {
             try {
@@ -80,7 +88,7 @@ public final class EtcdPersistentLeaser implements Leaser {
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             ready.set(true);
-            logger.info("Started PersistentLeaser [{}]", getIdentity().toString());
+            logger.info("Started PersistentLeaser [{}]", getIdentity());
         } else {
             throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
@@ -348,7 +356,7 @@ public final class EtcdPersistentLeaser implements Leaser {
                 cleanTable(LIVELEASES);
                 cleanTable(REVOKEDLEASES);
                 cluster.close();
-                logger.info("Stopped PersistentLeaser [{}]", getIdentity().toString());
+                logger.info("Stopped PersistentLeaser [{}]", getIdentity());
             } catch (Exception tiniProblem) {
                 throw new LeaserServerException(Code.LEASER_TINI_FAILURE, tiniProblem);
             }

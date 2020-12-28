@@ -1,5 +1,6 @@
 package com.github.leaser;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -16,6 +17,8 @@ import io.grpc.ManagedChannelBuilder;
  */
 final class LeaserClientImpl implements LeaserClient {
     private static final Logger logger = LogManager.getLogger(LeaserClientImpl.class.getSimpleName());
+
+    private final String identity = UUID.randomUUID().toString();
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
@@ -39,7 +42,7 @@ final class LeaserClientImpl implements LeaserClient {
             channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().build();
             serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
             ready.set(true);
-            logger.info("Started LeaserClient [{}]", getIdentity().toString());
+            logger.info("Started LeaserClient [{}]", getIdentity());
         }
     }
 
@@ -50,11 +53,16 @@ final class LeaserClientImpl implements LeaserClient {
                 ready.set(false);
                 channel.shutdownNow().awaitTermination(1L, TimeUnit.SECONDS);
                 channel.shutdown();
-                logger.info("Stopped LeaserClient [{}]", getIdentity().toString());
+                logger.info("Stopped LeaserClient [{}]", getIdentity());
             } catch (Exception tiniProblem) {
                 logger.error(tiniProblem);
             }
         }
+    }
+
+    @Override
+    public String getIdentity() {
+        return identity;
     }
 
     @Override

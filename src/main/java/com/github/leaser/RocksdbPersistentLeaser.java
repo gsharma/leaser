@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -30,6 +31,8 @@ import com.github.leaser.LeaserServerException.Code;
  */
 public final class RocksdbPersistentLeaser implements Leaser {
     private static final Logger logger = LogManager.getLogger(RocksdbPersistentLeaser.class.getSimpleName());
+
+    private final String identity = UUID.randomUUID().toString();
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
@@ -86,10 +89,15 @@ public final class RocksdbPersistentLeaser implements Leaser {
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             ready.set(true);
-            logger.info("Started PersistentLeaser [{}]", getIdentity().toString());
+            logger.info("Started PersistentLeaser [{}]", getIdentity());
         } else {
             throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
+    }
+
+    @Override
+    public String getIdentity() {
+        return identity;
     }
 
     @Override
@@ -211,6 +219,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 recentExpiredLeases.add(leaseInfo);
             }
         }
+        logger.info("Found {} expired leases", recentExpiredLeases.size());
         return recentExpiredLeases;
     }
 
@@ -228,6 +237,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 recentRevokedLeases.add(leaseInfo);
             }
         }
+        logger.info("Found {} revoked leases", recentRevokedLeases.size());
         return recentRevokedLeases;
     }
 
@@ -246,7 +256,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                         .sorted(Comparator.reverseOrder())
                         .map(Path::toFile)
                         .forEach(File::delete);
-                logger.info("Stopped PersistentLeaser [{}]", getIdentity().toString());
+                logger.info("Stopped PersistentLeaser [{}]", getIdentity());
             } catch (Exception tiniProblem) {
                 throw new LeaserServerException(Code.LEASER_TINI_FAILURE, tiniProblem);
             }
@@ -277,7 +287,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
             setDaemon(true);
             setName("lease-auditor");
             this.runIntervalSeconds = runIntervalSeconds;
-            logger.info("Started LeaseAuditor");
+            logger.info("Started LeaseAuditor [{}]", getIdentity());
         }
 
         @Override
@@ -309,7 +319,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                     break;
                 }
             }
-            logger.info("Stopped LeaseAuditor");
+            logger.info("Stopped LeaseAuditor [{}]", getIdentity());
         }
     }
 

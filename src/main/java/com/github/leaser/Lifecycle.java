@@ -1,16 +1,12 @@
 package com.github.leaser;
 
-import java.util.UUID;
-
 /**
  * A simple interface to tie together core lifecycle operations applicable to stateful objects.
  */
 public interface Lifecycle {
 
     // Get the identity of this instance
-    default UUID getIdentity() {
-        return UUID.randomUUID();
-    }
+    String getIdentity();
 
     // Start this instance
     void start() throws Exception;
