@@ -43,6 +43,7 @@ public final class LeaserIntegrationTest {
     public void initClientServer() throws Exception {
         server = LeaserServerBuilder.newBuilder().serverHost(serverHost).serverPort(serverPort)
                 .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
+                // .leaserMode(LeaserMode.MEMORY)
                 .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
         server.start();
         assertTrue(server.isRunning());

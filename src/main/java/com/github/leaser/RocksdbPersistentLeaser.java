@@ -139,6 +139,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                         throw new LeaserServerException(Code.LEASE_ALREADY_EXPIRED,
                                 String.format("Lease for ownerId:%s and resourceId:%s is already expired", ownerId, resourceId));
                     }
+                    // TODO: better to do this atomically via a db txn
                     {
                         dataStore.put(revokedLeases, serializedResourceId, serializedLeaseInfo);
                         dataStore.delete(liveLeases, serializedResourceId);
@@ -305,6 +306,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                                 // final String resourceId = new String(serializedResourceId, StandardCharsets.UTF_8);
                                 final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
                                 if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
+                                    // TODO: better to do this atomically via a db txn
                                     dataStore.put(expiredLeases, serializedResourceId, serializedLeaseInfo);
                                     dataStore.delete(liveLeases, serializedResourceId);
                                     logger.info("Expired {}", leaseInfo);
@@ -312,7 +314,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                             }
                         }
                     } catch (RocksDBException persistenceIssue) {
-                        logger.error(persistenceIssue);
+                        logger.error("Encountered rocksdb persistence issue", persistenceIssue);
                     }
                     sleep(TimeUnit.MILLISECONDS.convert(runIntervalSeconds, TimeUnit.SECONDS));
                 } catch (InterruptedException interrupted) {

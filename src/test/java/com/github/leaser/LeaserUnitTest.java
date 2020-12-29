@@ -124,20 +124,21 @@ public final class LeaserUnitTest {
         assertEquals(leaseInfo, leaser.getLeaseInfo(ownerId, resource.getId()));
         assertEquals(1, leaseInfo.getRevision());
         assertNull(leaseInfo.getLastUpdate());
-        long expirationSeconds = leaseInfo.getExpirationEpochSeconds();
+        // long expirationSeconds = leaseInfo.getExpirationEpochSeconds();
 
-        final LeaseInfo extendedLeaseInfo = leaser.extendLease(ownerId, resource.getId(), 1L);
+        final long ttlExtendBySeconds = 2L;
+        final LeaseInfo extendedLeaseInfo = leaser.extendLease(ownerId, resource.getId(), ttlExtendBySeconds);
         assertEquals(leaseInfo, extendedLeaseInfo);
         // assertEquals(leaseInfo.getCreated(), extendedLeaseInfo.getCreated());
         assertEquals(2, extendedLeaseInfo.getRevision());
         assertNotNull(extendedLeaseInfo.getLastUpdate());
-        assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
-
-        while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
-            Thread.sleep(200L);
-        }
-        assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
-        assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
+        assertEquals(leaseInfo.getExpirationEpochSeconds() + ttlExtendBySeconds, extendedLeaseInfo.getExpirationEpochSeconds());
+        // assertTrue(extendedLeaseInfo.getExpirationEpochSeconds() > expirationSeconds);
+        // while (leaser.getLeaseInfo(ownerId, resource.getId()) != null) {
+        // Thread.sleep(200L);
+        // }
+        // assertNull(leaser.getLeaseInfo(ownerId, resource.getId()));
+        // assertTrue(leaser.getExpiredLeases().contains(leaseInfo));
     }
 
     @Ignore
