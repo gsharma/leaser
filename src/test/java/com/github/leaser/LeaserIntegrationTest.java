@@ -18,6 +18,19 @@ import org.junit.Test;
 
 import com.github.leaser.Leaser.LeaserMode;
 import com.github.leaser.LeaserServer.LeaserServerBuilder;
+//import com.github.leaser.model.AcquireLeaseRequest;
+//import com.github.leaser.model.AcquireLeaseResponse;
+//import com.github.leaser.model.ExtendLeaseRequest;
+//import com.github.leaser.model.ExtendLeaseResponse;
+//import com.github.leaser.model.GetExpiredLeasesRequest;
+//import com.github.leaser.model.GetExpiredLeasesResponse;
+//import com.github.leaser.model.GetLeaseInfoRequest;
+//import com.github.leaser.model.GetLeaseInfoResponse;
+//import com.github.leaser.model.GetRevokedLeasesRequest;
+//import com.github.leaser.model.GetRevokedLeasesResponse;
+//import com.github.leaser.model.Lease;
+//import com.github.leaser.model.RevokeLeaseRequest;
+//import com.github.leaser.model.RevokeLeaseResponse;
 
 /**
  * End to end tests for keeping leaser's sanity.
@@ -70,6 +83,8 @@ public final class LeaserIntegrationTest {
         final String resourceId = "resource-1";
         final String ownerId = "integ-test";
         final long ttlSeconds = 2L;
+
+        // 1. acquire lease
         final AcquireLeaseRequest acquireLeaseRequest = AcquireLeaseRequest.newBuilder().setResourceId(resourceId).setOwnerId(ownerId)
                 .setTtlSeconds(ttlSeconds).build();
         final long requestShipTime = System.currentTimeMillis();
@@ -82,6 +97,14 @@ public final class LeaserIntegrationTest {
         assertTrue(lease.getCreated() > requestShipTime);
         assertEquals(1L, lease.getRevision());
         assertEquals(0L, lease.getLastUpdated());
+
+        // 2. get lease info
+        final GetLeaseInfoRequest getLeaseInfoRequest = GetLeaseInfoRequest.newBuilder().setOwnerId(ownerId).setResourceId(resourceId).build();
+        final GetLeaseInfoResponse getLeaseInfoResponse = client.getLeaseInfo(getLeaseInfoRequest);
+        final Lease leaseRead = getLeaseInfoResponse.getLease();
+        assertEquals(lease.getLeaseId(), leaseRead.getLeaseId());
+        assertEquals(lease.getResourceId(), leaseRead.getResourceId());
+        assertEquals(lease.getOwnerId(), leaseRead.getOwnerId());
     }
 
     @Test

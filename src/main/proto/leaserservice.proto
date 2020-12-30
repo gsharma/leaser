@@ -1,6 +1,7 @@
 syntax = "proto3";
 option java_package = "com.github.leaser";
 option java_multiple_files = true;
+
 package com.github.leaser;
 
 message Lease {
@@ -74,3 +75,4 @@ service LeaserService {
   rpc getExpiredLeases(GetExpiredLeasesRequest) returns (GetExpiredLeasesResponse);
   rpc getRevokedLeases(GetRevokedLeasesRequest) returns (GetRevokedLeasesResponse);
 }
+
