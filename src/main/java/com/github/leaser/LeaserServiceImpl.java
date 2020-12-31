@@ -4,20 +4,20 @@ import java.util.Set;
 
 import io.grpc.stub.StreamObserver;
 
-//import com.github.leaser.model.AcquireLeaseRequest;
-//import com.github.leaser.model.AcquireLeaseResponse;
-//import com.github.leaser.model.ExtendLeaseRequest;
-//import com.github.leaser.model.ExtendLeaseResponse;
-//import com.github.leaser.model.GetExpiredLeasesRequest;
-//import com.github.leaser.model.GetExpiredLeasesResponse;
-//import com.github.leaser.model.GetLeaseInfoRequest;
-//import com.github.leaser.model.GetLeaseInfoResponse;
-//import com.github.leaser.model.GetRevokedLeasesRequest;
-//import com.github.leaser.model.GetRevokedLeasesResponse;
-//import com.github.leaser.model.Lease;
-//import com.github.leaser.model.LeaserServiceGrpc;
-//import com.github.leaser.model.RevokeLeaseRequest;
-//import com.github.leaser.model.RevokeLeaseResponse;
+import com.github.leaser.rpc.AcquireLeaseRequest;
+import com.github.leaser.rpc.AcquireLeaseResponse;
+import com.github.leaser.rpc.ExtendLeaseRequest;
+import com.github.leaser.rpc.ExtendLeaseResponse;
+import com.github.leaser.rpc.GetExpiredLeasesRequest;
+import com.github.leaser.rpc.GetExpiredLeasesResponse;
+import com.github.leaser.rpc.GetLeaseInfoRequest;
+import com.github.leaser.rpc.GetLeaseInfoResponse;
+import com.github.leaser.rpc.GetRevokedLeasesRequest;
+import com.github.leaser.rpc.GetRevokedLeasesResponse;
+import com.github.leaser.rpc.Lease;
+import com.github.leaser.rpc.LeaserServiceGrpc;
+import com.github.leaser.rpc.RevokeLeaseRequest;
+import com.github.leaser.rpc.RevokeLeaseResponse;
 
 /**
  * RPC Service implementation for the Leaser.
