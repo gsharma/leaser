@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -7,8 +7,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
-import com.github.leaser.Leaser.LeaserMode;
-import com.github.leaser.LeaserServer.LeaserServerBuilder;
+import com.github.leaser.server.Leaser.LeaserMode;
+import com.github.leaser.server.LeaserServer.LeaserServerBuilder;
 
 /**
  * Tests to keep the sanity of LeaserServer

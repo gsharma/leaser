@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.lib;
 
 /**
  * A simple interface to tie together core lifecycle operations applicable to stateful objects.

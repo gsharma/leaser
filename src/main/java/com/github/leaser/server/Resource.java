@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.util.UUID;
 

@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.net.InetSocketAddress;
 import java.util.UUID;
@@ -9,8 +9,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.github.leaser.Leaser.LeaserMode;
-import com.github.leaser.LeaserServerException.Code;
+import com.github.leaser.lib.Lifecycle;
+import com.github.leaser.server.Leaser.LeaserMode;
+import com.github.leaser.server.LeaserServerException.Code;
 
 import io.grpc.Server;
 //import io.grpc.ServerBuilder;

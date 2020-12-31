@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.github.leaser.LeaserServerException.Code;
+import com.github.leaser.server.LeaserServerException.Code;
 
 /**
  * An in-memory implementation for the Leaser.

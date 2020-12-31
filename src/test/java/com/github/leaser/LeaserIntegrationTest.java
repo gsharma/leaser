@@ -16,8 +16,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.github.leaser.Leaser.LeaserMode;
-import com.github.leaser.LeaserServer.LeaserServerBuilder;
+import com.github.leaser.client.LeaserClient;
+import com.github.leaser.client.LeaserClientException;
 import com.github.leaser.rpc.AcquireLeaseRequest;
 import com.github.leaser.rpc.AcquireLeaseResponse;
 import com.github.leaser.rpc.ExtendLeaseRequest;
@@ -31,6 +31,9 @@ import com.github.leaser.rpc.GetRevokedLeasesResponse;
 import com.github.leaser.rpc.Lease;
 import com.github.leaser.rpc.RevokeLeaseRequest;
 import com.github.leaser.rpc.RevokeLeaseResponse;
+import com.github.leaser.server.LeaserServer;
+import com.github.leaser.server.Leaser.LeaserMode;
+import com.github.leaser.server.LeaserServer.LeaserServerBuilder;
 
 /**
  * End to end tests for keeping leaser's sanity.

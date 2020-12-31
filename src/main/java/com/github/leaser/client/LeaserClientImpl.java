@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.client;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.github.leaser.LeaserClientException.Code;
+import com.github.leaser.client.LeaserClientException.Code;
 import com.github.leaser.rpc.AcquireLeaseRequest;
 import com.github.leaser.rpc.AcquireLeaseResponse;
 import com.github.leaser.rpc.ExtendLeaseRequest;

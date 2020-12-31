@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -17,6 +17,8 @@ import java.util.HashMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.leaser.server.LeaserServerException.Code;
+
 import io.etcd.jetcd.KeyValue;
 import io.etcd.jetcd.Client;
 import io.etcd.jetcd.launcher.EtcdCluster;
@@ -24,8 +26,6 @@ import io.etcd.jetcd.launcher.EtcdClusterFactory;
 import io.etcd.jetcd.ByteSequence;
 import io.etcd.jetcd.options.DeleteOption;
 import io.etcd.jetcd.options.GetOption;
-
-import com.github.leaser.LeaserServerException.Code;
 
 /**
  * Etcd based implementation of the Leaser

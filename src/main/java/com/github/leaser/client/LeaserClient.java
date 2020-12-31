@@ -1,5 +1,6 @@
-package com.github.leaser;
+package com.github.leaser.client;
 
+import com.github.leaser.lib.Lifecycle;
 import com.github.leaser.rpc.AcquireLeaseRequest;
 import com.github.leaser.rpc.AcquireLeaseResponse;
 import com.github.leaser.rpc.ExtendLeaseRequest;

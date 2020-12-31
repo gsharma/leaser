@@ -1,6 +1,8 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.util.Set;
+
+import com.github.leaser.lib.Lifecycle;
 
 /**
  * A simple service to manage resource leases.

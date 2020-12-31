@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +24,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
-import com.github.leaser.LeaserServerException.Code;
+import com.github.leaser.server.LeaserServerException.Code;
 
 /**
  * A rocksdb based implementation of the Leaser

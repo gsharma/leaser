@@ -1,4 +1,4 @@
-package com.github.leaser;
+package com.github.leaser.server;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -13,8 +13,8 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.github.leaser.Leaser.LeaserMode;
-import com.github.leaser.LeaserServerException.Code;
+import com.github.leaser.server.Leaser.LeaserMode;
+import com.github.leaser.server.LeaserServerException.Code;
 
 import java.util.ArrayList;
 import java.util.List;
