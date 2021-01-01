@@ -1,7 +1,30 @@
 # Leaser
 A leaser is responsible for helping with lease management for resources. It can operate in an in-memory or a persistent configuration and can efficiently help manage leases for many resources without using much memory or compute.
 
-## API Reference
+## Leaser Modes
+Leaser can presently operate in 1 of 3 operational modes:
+1. In-memory leaser
+2. RocksDb-backed leaser
+3. Etcd-backed leaser
+
+## Leaser Client API Reference
+```java
+AcquireLeaseResponse acquireLease(final AcquireLeaseRequest request) throws LeaserClientException;
+
+RevokeLeaseResponse revokeLease(final RevokeLeaseRequest request) throws LeaserClientException;
+
+ExtendLeaseResponse extendLease(final ExtendLeaseRequest request) throws LeaserClientException;
+
+GetLeaseInfoResponse getLeaseInfo(final GetLeaseInfoRequest request) throws LeaserClientException;
+
+GetExpiredLeasesResponse getExpiredLeases(final GetExpiredLeasesRequest request) throws LeaserClientException;
+
+GetRevokedLeasesResponse getRevokedLeases(final GetRevokedLeasesRequest request) throws LeaserClientException;
+
+static LeaserClient getClient(final String serverHost, final int serverPort);
+```
+
+## Leaser API Reference
 ```java
 // Start the Leaser.
 void start() throws LeaserException;
