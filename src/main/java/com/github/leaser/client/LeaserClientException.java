@@ -23,6 +23,11 @@ public final class LeaserClientException extends Exception {
         this.code = code;
     }
 
+    public LeaserClientException(final Code code, final String message, final Throwable throwable) {
+        super(message, throwable);
+        this.code = code;
+    }
+
     public Code getCode() {
         return code;
     }
@@ -44,6 +49,10 @@ public final class LeaserClientException extends Exception {
         LEASER_CLIENT_TINI_FAILURE("Failed to cleanly shutdown the leaser client"),
         // 8.
         LEASER_INVALID_ARG("Invalid arguments passed"),
+        // 9.
+        LEASER_SERVER_DEADLINE_EXCEEDED("Leaser server failed to respond within its deadline"),
+        // 10.
+        LEASER_SERVER_ERROR("Leaser server encountered an error"),
         // n.
         UNKNOWN_FAILURE(
                 "Leaser client internal failure. Check exception stacktrace for more details of the failure");

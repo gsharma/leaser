@@ -16,6 +16,7 @@ import com.github.leaser.server.LeaserServerException.Code;
 import io.grpc.Server;
 //import io.grpc.ServerBuilder;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
 
 /**
  * RPC Server for serving clients of leaser.
@@ -119,7 +120,7 @@ public final class LeaserServer implements Lifecycle {
                         leaser.start();
                         final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
                         server = NettyServerBuilder.forAddress(new InetSocketAddress(serverHost, serverPort))
-                                .addService(service).build();
+                                .addService(service).intercept(TransmitStatusRuntimeExceptionInterceptor.instance()).build();
                         server.start();
                         serverReadyLatch.countDown();
                         logger.info("Started LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,

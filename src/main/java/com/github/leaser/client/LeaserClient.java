@@ -31,8 +31,8 @@ public interface LeaserClient extends Lifecycle {
 
     GetRevokedLeasesResponse getRevokedLeases(final GetRevokedLeasesRequest request) throws LeaserClientException;
 
-    static LeaserClient getClient(final String serverHost, final int serverPort) {
-        return new LeaserClientImpl(serverHost, serverPort);
+    static LeaserClient getClient(final String serverHost, final int serverPort, final long serverDeadlineSeconds) {
+        return new LeaserClientImpl(serverHost, serverPort, serverDeadlineSeconds);
     }
 
 }

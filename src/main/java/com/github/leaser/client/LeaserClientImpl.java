@@ -1,8 +1,12 @@
 package com.github.leaser.client;
 
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,8 +26,15 @@ import com.github.leaser.rpc.LeaserServiceGrpc;
 import com.github.leaser.rpc.RevokeLeaseRequest;
 import com.github.leaser.rpc.RevokeLeaseResponse;
 
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.MethodDescriptor;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 
 /**
  * A simple leaser client implementation.
@@ -38,22 +49,42 @@ final class LeaserClientImpl implements LeaserClient {
 
     private final String serverHost;
     private final int serverPort;
+    private final long serverDeadlineSeconds;
 
     private ManagedChannel channel;
     private LeaserServiceGrpc.LeaserServiceBlockingStub serviceStub;
 
-    LeaserClientImpl(final String serverHost, final int serverPort) {
+    LeaserClientImpl(final String serverHost, final int serverPort, final long serverDeadlineSeconds) {
         this.running = new AtomicBoolean(false);
         this.ready = new AtomicBoolean(false);
         this.serverHost = serverHost;
         this.serverPort = serverPort;
+        this.serverDeadlineSeconds = serverDeadlineSeconds;
     }
 
     @Override
     public void start() throws LeaserClientException {
         if (running.compareAndSet(false, true)) {
             channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().build();
-            serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
+            // serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
+            final ClientInterceptor deadlineInterceptor = new ClientInterceptor() {
+                @Override
+                public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+                        final MethodDescriptor<ReqT, RespT> method, final CallOptions callOptions, final Channel next) {
+                    // logger.info("Intercepted {}", method.getFullMethodName());
+                    return next.newCall(method, callOptions.withDeadlineAfter(serverDeadlineSeconds, TimeUnit.SECONDS));
+                }
+            };
+            final Executor clientExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
+                private final AtomicInteger threadIter = new AtomicInteger();
+                private final String threadNamePattern = "leaser-client-%d";
+
+                @Override
+                public Thread newThread(final Runnable runnable) {
+                    return new Thread(runnable, String.format(threadNamePattern, threadIter.incrementAndGet()));
+                }
+            });
+            serviceStub = LeaserServiceGrpc.newBlockingStub(channel).withInterceptors(deadlineInterceptor).withExecutor(clientExecutor);
             ready.set(true);
             logger.info("Started LeaserClient [{}]", getIdentity());
         }
@@ -88,7 +119,13 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.acquireLease(request);
+        AcquireLeaseResponse response = null;
+        try {
+            response = serviceStub.acquireLease(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
     }
 
     @Override
@@ -96,7 +133,13 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.revokeLease(request);
+        RevokeLeaseResponse response = null;
+        try {
+            response = serviceStub.revokeLease(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
     }
 
     @Override
@@ -104,7 +147,13 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.extendLease(request);
+        ExtendLeaseResponse response = null;
+        try {
+            response = serviceStub.extendLease(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
     }
 
     @Override
@@ -112,7 +161,13 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.getLeaseInfo(request);
+        GetLeaseInfoResponse response = null;
+        try {
+            response = serviceStub.getLeaseInfo(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
     }
 
     @Override
@@ -120,7 +175,13 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.getExpiredLeases(request);
+        GetExpiredLeasesResponse response = null;
+        try {
+            response = serviceStub.getExpiredLeases(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
     }
 
     @Override
@@ -128,7 +189,29 @@ final class LeaserClientImpl implements LeaserClient {
         if (!isRunning()) {
             throw new LeaserClientException(Code.INVALID_LEASER_CLIENT_LCM, "Invalid attempt to operate an already stopped leaser client");
         }
-        return serviceStub.getRevokedLeases(request);
+        GetRevokedLeasesResponse response = null;
+        try {
+            response = serviceStub.getRevokedLeases(request);
+        } catch (Throwable problem) {
+            toLeaserClientException(problem);
+        }
+        return response;
+    }
+
+    private static void toLeaserClientException(final Throwable problem) throws LeaserClientException {
+        if (problem instanceof StatusException) {
+            final StatusException statusException = StatusException.class.cast(problem);
+            final String status = statusException.getStatus().toString();
+            throw new LeaserClientException(Code.LEASER_SERVER_ERROR, status, statusException);
+        } else if (problem instanceof StatusRuntimeException) {
+            final StatusRuntimeException statusRuntimeException = StatusRuntimeException.class.cast(problem);
+            final String status = statusRuntimeException.getStatus().toString();
+            throw new LeaserClientException(Code.LEASER_SERVER_ERROR, status, statusRuntimeException);
+        } else if (problem instanceof LeaserClientException) {
+            throw LeaserClientException.class.cast(problem);
+        } else {
+            throw new LeaserClientException(Code.UNKNOWN_FAILURE, problem);
+        }
     }
 
 }

@@ -43,6 +43,7 @@ public final class LeaserIntegrationTest {
 
     private final String serverHost = "localhost";
     private final int serverPort = 7272;
+    private final long serverDeadlineSeconds = 1L;
     private LeaserServer server;
     private LeaserClient client;
 
@@ -64,7 +65,7 @@ public final class LeaserIntegrationTest {
         server.start();
         assertTrue(server.isRunning());
 
-        client = LeaserClient.getClient(serverHost, serverPort);
+        client = LeaserClient.getClient(serverHost, serverPort, serverDeadlineSeconds);
         client.start();
         assertTrue(client.isRunning());
     }
