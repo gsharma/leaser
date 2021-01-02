@@ -60,6 +60,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
     public void start() throws LeaserServerException {
         if (running.compareAndSet(false, true)) {
             // cleanly handle resumption cases
+            Path dataStorePath = null;
             try {
                 final ColumnFamilyOptions columnFamilyOptions = new ColumnFamilyOptions();
                 final List<ColumnFamilyDescriptor> columnFamilyDescriptors = new ArrayList<>(4);
@@ -74,9 +75,9 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 final DBOptions options = new DBOptions();
                 options.setCreateIfMissing(true);
                 options.setCreateMissingColumnFamilies(true);
-                storeDirectory = new File("./leasedb", "leaser");
+                storeDirectory = new File("./leasedb", "leaser-" + getIdentity());
                 Files.createDirectories(storeDirectory.getParentFile().toPath());
-                Files.createDirectories(storeDirectory.getAbsoluteFile().toPath());
+                dataStorePath = Files.createDirectories(storeDirectory.getAbsoluteFile().toPath());
                 dataStore = RocksDB.open(options, storeDirectory.getAbsolutePath(), columnFamilyDescriptors, columnFamilyHandles);
 
                 // defaultCF = columnFamilyHandles.get(0);
@@ -89,7 +90,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
             leaseAuditor = new LeaseAuditor(leaseAuditorIntervalSeconds);
             leaseAuditor.start();
             ready.set(true);
-            logger.info("Started PersistentLeaser [{}]", getIdentity());
+            logger.info("Started PersistentLeaser [{}] at {}", getIdentity(), dataStorePath);
         } else {
             throw new LeaserServerException(Code.INVALID_LEASER_LCM, "Invalid attempt to start an already running leaser");
         }
@@ -252,11 +253,14 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 dataStore.dropColumnFamily(liveLeases);
                 dataStore.dropColumnFamily(expiredLeases);
                 dataStore.dropColumnFamily(revokedLeases);
+                logger.info("Dropped column families: liveLeases, expiredLeases, revokedLeases");
                 dataStore.close();
+                logger.info("Closed dataStore");
                 Files.walk(storeDirectory.toPath())
                         .sorted(Comparator.reverseOrder())
                         .map(Path::toFile)
                         .forEach(File::delete);
+                logger.info("Deleted directory {}", storeDirectory.getPath());
                 logger.info("Stopped PersistentLeaser [{}]", getIdentity());
             } catch (Exception tiniProblem) {
                 throw new LeaserServerException(Code.LEASER_TINI_FAILURE, tiniProblem);

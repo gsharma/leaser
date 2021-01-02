@@ -29,4 +29,25 @@ public final class LeaserServerTest {
         }
     }
 
+    @Test
+    public void testMultipleLeaserServers() throws Exception {
+        final LeaserServer serverOne = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070)
+                .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
+        serverOne.start();
+        assertTrue(serverOne.isRunning());
+
+        final LeaserServer serverTwo = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7575)
+                .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
+        serverTwo.start();
+        assertTrue(serverTwo.isRunning());
+
+        serverOne.stop();
+        assertFalse(serverOne.isRunning());
+
+        serverTwo.stop();
+        assertFalse(serverTwo.isRunning());
+    }
+
 }
