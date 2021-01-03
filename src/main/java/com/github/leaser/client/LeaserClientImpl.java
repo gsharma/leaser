@@ -66,7 +66,6 @@ final class LeaserClientImpl implements LeaserClient {
     public void start() throws LeaserClientException {
         if (running.compareAndSet(false, true)) {
             channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().build();
-            // serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
             final ClientInterceptor deadlineInterceptor = new ClientInterceptor() {
                 @Override
                 public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(

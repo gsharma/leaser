@@ -3,8 +3,12 @@ package com.github.leaser.server;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -107,7 +111,7 @@ public final class LeaserServer implements Lifecycle {
             final CountDownLatch serverReadyLatch = new CountDownLatch(1);
             serverThread = new Thread() {
                 {
-                    setName("leaser-server");
+                    setName("leaser-server-main");
                     setDaemon(true);
                 }
 
@@ -118,9 +122,20 @@ public final class LeaserServer implements Lifecycle {
                     try {
                         leaser = Leaser.getLeaser(leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
                         leaser.start();
+                        final Executor serverExecutor = Executors.newFixedThreadPool(8, new ThreadFactory() {
+                            private final AtomicInteger threadIter = new AtomicInteger();
+                            private final String threadNamePattern = "leaser-server-%d";
+
+                            @Override
+                            public Thread newThread(final Runnable runnable) {
+                                final Thread worker = new Thread(runnable, String.format(threadNamePattern, threadIter.incrementAndGet()));
+                                worker.setDaemon(true);
+                                return worker;
+                            }
+                        });
                         final LeaserServiceImpl service = new LeaserServiceImpl(leaser);
                         server = NettyServerBuilder.forAddress(new InetSocketAddress(serverHost, serverPort))
-                                .addService(service).intercept(TransmitStatusRuntimeExceptionInterceptor.instance()).build();
+                                .addService(service).intercept(TransmitStatusRuntimeExceptionInterceptor.instance()).executor(serverExecutor).build();
                         server.start();
                         serverReadyLatch.countDown();
                         logger.info("Started LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,
