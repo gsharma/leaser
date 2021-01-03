@@ -21,7 +21,7 @@ public final class LeaserServerTest {
         for (int iter = 0; iter < 3; iter++) {
             final LeaserServer server = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070)
                     .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
-                    .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
+                    .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).workerCount(4).build();
             server.start();
             assertTrue(server.isRunning());
             server.stop();
@@ -33,13 +33,13 @@ public final class LeaserServerTest {
     public void testMultipleLeaserServers() throws Exception {
         final LeaserServer serverOne = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7070)
                 .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
-                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).workerCount(4).build();
         serverOne.start();
         assertTrue(serverOne.isRunning());
 
         final LeaserServer serverTwo = LeaserServerBuilder.newBuilder().serverHost("localhost").serverPort(7575)
                 .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
-                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).build();
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).workerCount(4).build();
         serverTwo.start();
         assertTrue(serverTwo.isRunning());
 

@@ -1,9 +1,9 @@
 package com.github.leaser.client;
 
 import java.util.UUID;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,6 +53,7 @@ final class LeaserClientImpl implements LeaserClient {
 
     private ManagedChannel channel;
     private LeaserServiceGrpc.LeaserServiceBlockingStub serviceStub;
+    private ThreadPoolExecutor clientExecutor;
 
     LeaserClientImpl(final String serverHost, final int serverPort, final long serverDeadlineSeconds) {
         this.running = new AtomicBoolean(false);
@@ -65,16 +66,7 @@ final class LeaserClientImpl implements LeaserClient {
     @Override
     public void start() throws LeaserClientException {
         if (running.compareAndSet(false, true)) {
-            channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().build();
-            final ClientInterceptor deadlineInterceptor = new ClientInterceptor() {
-                @Override
-                public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
-                        final MethodDescriptor<ReqT, RespT> method, final CallOptions callOptions, final Channel next) {
-                    // logger.info("Intercepted {}", method.getFullMethodName());
-                    return next.newCall(method, callOptions.withDeadlineAfter(serverDeadlineSeconds, TimeUnit.SECONDS));
-                }
-            };
-            final Executor clientExecutor = Executors.newFixedThreadPool(4, new ThreadFactory() {
+            clientExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, new ThreadFactory() {
                 private final AtomicInteger threadIter = new AtomicInteger();
                 private final String threadNamePattern = "leaser-client-%d";
 
@@ -83,7 +75,19 @@ final class LeaserClientImpl implements LeaserClient {
                     return new Thread(runnable, String.format(threadNamePattern, threadIter.incrementAndGet()));
                 }
             });
-            serviceStub = LeaserServiceGrpc.newBlockingStub(channel).withInterceptors(deadlineInterceptor).withExecutor(clientExecutor);
+            final ClientInterceptor deadlineInterceptor = new ClientInterceptor() {
+                @Override
+                public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+                        final MethodDescriptor<ReqT, RespT> method, final CallOptions callOptions, final Channel next) {
+                    logger.debug("Intercepted {}", method.getFullMethodName());
+                    return next.newCall(method, callOptions.withDeadlineAfter(serverDeadlineSeconds, TimeUnit.SECONDS));
+                }
+            };
+            channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().executor(clientExecutor).intercept(deadlineInterceptor)
+                    .userAgent("leaser-client").build();
+            serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
+            // serviceStub = LeaserServiceGrpc.newBlockingStub(channel).withInterceptors(deadlineInterceptor).withExecutor(clientExecutor);
+            // logger.info(serviceStub.getCallOptions().toString());
             ready.set(true);
             logger.info("Started LeaserClient [{}]", getIdentity());
         }
@@ -96,6 +100,12 @@ final class LeaserClientImpl implements LeaserClient {
                 ready.set(false);
                 channel.shutdownNow().awaitTermination(1L, TimeUnit.SECONDS);
                 channel.shutdown();
+                if (clientExecutor != null && !clientExecutor.isTerminated()) {
+                    clientExecutor.shutdown();
+                    clientExecutor.awaitTermination(2L, TimeUnit.SECONDS);
+                    clientExecutor.shutdownNow();
+                    logger.info("Stopped leaser client worker threads");
+                }
                 logger.info("Stopped LeaserClient [{}]", getIdentity());
             } catch (Exception tiniProblem) {
                 logger.error(tiniProblem);

@@ -3,9 +3,9 @@ package com.github.leaser.server;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,18 +38,21 @@ public final class LeaserServer implements Lifecycle {
     private final LeaserMode leaserMode;
     private final long maxTtlDaysAllowed;
     private final long auditorFrequencySeconds;
+    private final int workerCount;
 
     private Leaser leaser;
     private Server server;
     private Thread serverThread;
+    private ThreadPoolExecutor serverExecutor;
 
     private LeaserServer(final String serverHost, final int serverPort, final LeaserMode leaserMode, final long maxTtlDaysAllowed,
-            final long auditorFrequencySeconds) {
+            final long auditorFrequencySeconds, final int workerCount) {
         this.serverHost = serverHost;
         this.serverPort = serverPort;
         this.leaserMode = leaserMode;
         this.maxTtlDaysAllowed = maxTtlDaysAllowed;
         this.auditorFrequencySeconds = auditorFrequencySeconds;
+        this.workerCount = workerCount;
     }
 
     public final static class LeaserServerBuilder {
@@ -58,6 +61,7 @@ public final class LeaserServer implements Lifecycle {
         private LeaserMode leaserMode;
         private long maxTtlDaysAllowed;
         private long auditorFrequencySeconds;
+        private int workerCount;
 
         public static LeaserServerBuilder newBuilder() {
             return new LeaserServerBuilder();
@@ -88,12 +92,18 @@ public final class LeaserServer implements Lifecycle {
             return this;
         }
 
+        public LeaserServerBuilder workerCount(final int workerCount) {
+            this.workerCount = workerCount;
+            return this;
+        }
+
         public LeaserServer build() throws LeaserServerException {
-            if (serverHost == null || serverPort == 0 || leaserMode == null || maxTtlDaysAllowed == 0L || auditorFrequencySeconds == 0L) {
+            if (serverHost == null || serverPort == 0 || leaserMode == null || maxTtlDaysAllowed == 0L || auditorFrequencySeconds == 0L
+                    || workerCount == 0) {
                 throw new LeaserServerException(Code.LEASER_INIT_FAILURE,
-                        "serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds all need to be specified");
+                        "serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds, workerCount all need to be specified");
             }
-            return new LeaserServer(serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
+            return new LeaserServer(serverHost, serverPort, leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds, workerCount);
         }
 
         private LeaserServerBuilder() {
@@ -122,7 +132,7 @@ public final class LeaserServer implements Lifecycle {
                     try {
                         leaser = Leaser.getLeaser(leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
                         leaser.start();
-                        final Executor serverExecutor = Executors.newFixedThreadPool(8, new ThreadFactory() {
+                        serverExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(workerCount, new ThreadFactory() {
                             private final AtomicInteger threadIter = new AtomicInteger();
                             private final String threadNamePattern = "leaser-server-%d";
 
@@ -171,6 +181,13 @@ public final class LeaserServer implements Lifecycle {
                 server.shutdown();
                 server.awaitTermination(2L, TimeUnit.SECONDS);
                 serverThread.interrupt();
+                logger.info("Stopped leaser server main thread");
+            }
+            if (serverExecutor != null && !serverExecutor.isTerminated()) {
+                serverExecutor.shutdown();
+                serverExecutor.awaitTermination(2L, TimeUnit.SECONDS);
+                serverExecutor.shutdownNow();
+                logger.info("Stopped leaser server worker threads");
             }
             logger.info("Stopped LeaserServer [{}] in {} millis", getIdentity(), (System.currentTimeMillis() - startMillis));
         } else {
@@ -184,7 +201,7 @@ public final class LeaserServer implements Lifecycle {
     }
 
     public static void main(String[] args) throws Exception {
-        final LeaserServer leaserServer = new LeaserServer("localhost", 7070, LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L);
+        final LeaserServer leaserServer = new LeaserServer("localhost", 7070, LeaserMode.PERSISTENT_ROCKSDB, 7L, 1L, 8);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
