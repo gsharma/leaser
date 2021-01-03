@@ -2,6 +2,9 @@ package com.github.leaser.server;
 
 import java.util.Set;
 
+import io.grpc.Status;
+import io.grpc.Status.Code;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
 import com.github.leaser.rpc.AcquireLeaseRequest;
@@ -39,7 +42,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -52,7 +55,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -66,7 +69,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -80,7 +83,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -99,7 +102,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -118,7 +121,7 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (LeaserServerException leaserProblem) {
-            responseObserver.onError(leaserProblem);
+            responseObserver.onError(toStatusRuntimeException(leaserProblem));
         }
     }
 
@@ -132,6 +135,10 @@ public final class LeaserServiceImpl extends LeaserServiceGrpc.LeaserServiceImpl
                     .setExpirationEpochSeconds(leaseInfo.getExpirationEpochSeconds()).build();
         }
         return lease;
+    }
+
+    private static StatusRuntimeException toStatusRuntimeException(final LeaserServerException serverException) {
+        return new StatusRuntimeException(Status.fromCode(Code.INTERNAL).withCause(serverException).withDescription(serverException.getMessage()));
     }
 
 }

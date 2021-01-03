@@ -44,7 +44,8 @@ public final class LeaserIntegrationTest {
     private final String serverHost = "localhost";
     private final int serverPort = 7272;
     private final long serverDeadlineSeconds = 1L;
-    private final int workerCount = 4;
+    private final int serverWorkerCount = 4;
+    private final int clientWorkerCount = 1;
     private LeaserServer server;
     private LeaserClient client;
 
@@ -62,11 +63,11 @@ public final class LeaserIntegrationTest {
         server = LeaserServerBuilder.newBuilder().serverHost(serverHost).serverPort(serverPort)
                 .leaserMode(LeaserMode.PERSISTENT_ROCKSDB)
                 // .leaserMode(LeaserMode.MEMORY)
-                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).workerCount(workerCount).build();
+                .maxTtlDaysAllowed(7L).auditorFrequencySeconds(1L).workerCount(serverWorkerCount).build();
         server.start();
         assertTrue(server.isRunning());
 
-        client = LeaserClient.getClient(serverHost, serverPort, serverDeadlineSeconds);
+        client = LeaserClient.getClient(serverHost, serverPort, serverDeadlineSeconds, clientWorkerCount);
         client.start();
         assertTrue(client.isRunning());
     }

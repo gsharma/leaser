@@ -50,23 +50,25 @@ final class LeaserClientImpl implements LeaserClient {
     private final String serverHost;
     private final int serverPort;
     private final long serverDeadlineSeconds;
+    private final int workerCount;
 
     private ManagedChannel channel;
     private LeaserServiceGrpc.LeaserServiceBlockingStub serviceStub;
     private ThreadPoolExecutor clientExecutor;
 
-    LeaserClientImpl(final String serverHost, final int serverPort, final long serverDeadlineSeconds) {
+    LeaserClientImpl(final String serverHost, final int serverPort, final long serverDeadlineSeconds, final int workerCount) {
         this.running = new AtomicBoolean(false);
         this.ready = new AtomicBoolean(false);
         this.serverHost = serverHost;
         this.serverPort = serverPort;
         this.serverDeadlineSeconds = serverDeadlineSeconds;
+        this.workerCount = workerCount;
     }
 
     @Override
     public void start() throws LeaserClientException {
         if (running.compareAndSet(false, true)) {
-            clientExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, new ThreadFactory() {
+            clientExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(workerCount, new ThreadFactory() {
                 private final AtomicInteger threadIter = new AtomicInteger();
                 private final String threadNamePattern = "leaser-client-%d";
 
@@ -86,8 +88,6 @@ final class LeaserClientImpl implements LeaserClient {
             channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().executor(clientExecutor).intercept(deadlineInterceptor)
                     .userAgent("leaser-client").build();
             serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
-            // serviceStub = LeaserServiceGrpc.newBlockingStub(channel).withInterceptors(deadlineInterceptor).withExecutor(clientExecutor);
-            // logger.info(serviceStub.getCallOptions().toString());
             ready.set(true);
             logger.info("Started LeaserClient [{}]", getIdentity());
         }
