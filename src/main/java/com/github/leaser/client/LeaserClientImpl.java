@@ -85,9 +85,11 @@ final class LeaserClientImpl implements LeaserClient {
                     return next.newCall(method, callOptions.withDeadlineAfter(serverDeadlineSeconds, TimeUnit.SECONDS));
                 }
             };
-            channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext().executor(clientExecutor).intercept(deadlineInterceptor)
+            channel = ManagedChannelBuilder.forAddress(serverHost, serverPort).usePlaintext()
+                    .executor(clientExecutor).offloadExecutor(clientExecutor)
+                    .intercept(deadlineInterceptor)
                     .userAgent("leaser-client").build();
-            serviceStub = LeaserServiceGrpc.newBlockingStub(channel);
+            serviceStub = LeaserServiceGrpc.newBlockingStub(channel).withWaitForReady();
             ready.set(true);
             logger.info("Started LeaserClient [{}]", getIdentity());
         }
