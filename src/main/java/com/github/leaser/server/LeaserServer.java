@@ -127,11 +127,12 @@ public final class LeaserServer implements Lifecycle {
 
                 @Override
                 public void run() {
-                    final long startMillis = System.currentTimeMillis();
+                    final long startNanos = System.nanoTime();
                     logger.info("Starting LeaserServer [{}] at port {}", getIdentity(), serverPort);
                     try {
                         leaser = Leaser.getLeaser(leaserMode, maxTtlDaysAllowed, auditorFrequencySeconds);
                         leaser.start();
+
                         serverExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(workerCount, new ThreadFactory() {
                             private final AtomicInteger threadIter = new AtomicInteger();
                             private final String threadNamePattern = "leaser-server-%d";
@@ -149,11 +150,11 @@ public final class LeaserServer implements Lifecycle {
                         server.start();
                         serverReadyLatch.countDown();
                         logger.info("Started LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,
-                                (System.currentTimeMillis() - startMillis));
+                                TimeUnit.MILLISECONDS.convert(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS));
                         server.awaitTermination();
                     } catch (Exception serverProblem) {
                         logger.error("Failed to start LeaserServer [{}] at port {} in {} millis", getIdentity(), serverPort,
-                                (System.currentTimeMillis() - startMillis), serverProblem);
+                                TimeUnit.MILLISECONDS.convert(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS), serverProblem);
                     }
                 }
             };
@@ -170,13 +171,10 @@ public final class LeaserServer implements Lifecycle {
 
     @Override
     public void stop() throws Exception {
-        final long startMillis = System.currentTimeMillis();
+        final long startNanos = System.nanoTime();
         logger.info("Stopping LeaserServer [{}]", getIdentity());
         if (running.compareAndSet(true, false)) {
             ready.set(false);
-            if (leaser.isRunning()) {
-                leaser.stop();
-            }
             if (!server.isTerminated()) {
                 server.shutdown();
                 server.awaitTermination(2L, TimeUnit.SECONDS);
@@ -189,7 +187,11 @@ public final class LeaserServer implements Lifecycle {
                 serverExecutor.shutdownNow();
                 logger.info("Stopped leaser server worker threads");
             }
-            logger.info("Stopped LeaserServer [{}] in {} millis", getIdentity(), (System.currentTimeMillis() - startMillis));
+            if (leaser.isRunning()) {
+                leaser.stop();
+            }
+            logger.info("Stopped LeaserServer [{}] in {} millis", getIdentity(),
+                    TimeUnit.MILLISECONDS.convert(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS));
         } else {
             logger.error("Invalid attempt to stop an already stopped LeaserServer");
         }

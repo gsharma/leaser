@@ -292,11 +292,11 @@ public final class RocksdbPersistentLeaser implements Leaser {
             setDaemon(true);
             setName("lease-auditor");
             this.runIntervalSeconds = runIntervalSeconds;
-            logger.info("Started LeaseAuditor [{}]", getIdentity());
         }
 
         @Override
         public void run() {
+            logger.info("Started LeaseAuditor [{}]", getIdentity());
             while (!isInterrupted()) {
                 try {
                     // logger.info("Auditing leases, live:{}, expired:{}", liveLeases.size(), expiredLeases.size());
