@@ -9,8 +9,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,6 +39,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
+    private final ConcurrentMap<String, LeaseInfo> memoryLeases;
 
     private final long maxTtlSecondsAllowed;
     private final long leaseAuditorIntervalSeconds;
@@ -54,6 +58,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
         this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
         this.leaseAuditorIntervalSeconds = leaseAuditorIntervalSeconds;
+        memoryLeases = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -84,6 +89,8 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 liveLeases = columnFamilyHandles.get(1);
                 expiredLeases = columnFamilyHandles.get(2);
                 revokedLeases = columnFamilyHandles.get(3);
+
+                memoryLeases.clear();
             } catch (Exception initProblem) {
                 throw new LeaserServerException(Code.LEASER_INIT_FAILURE, initProblem);
             }
@@ -115,6 +122,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 throw new LeaserServerException(Code.LEASE_ALREADY_EXISTS, String.format("Lease already taken for resourceId:%s", resourceId));
             }
             dataStore.put(liveLeases, serializedResourceId, serializedLease);
+            memoryLeases.put(resourceId, leaseInfo);
             logger.info("Acquired {}", leaseInfo);
         } catch (RocksDBException persistenceIssue) {
             throw new LeaserServerException(Code.LEASE_PERSISTENCE_FAILURE, persistenceIssue);
@@ -144,6 +152,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                     {
                         dataStore.put(revokedLeases, serializedResourceId, serializedLeaseInfo);
                         dataStore.delete(liveLeases, serializedResourceId);
+                        memoryLeases.remove(resourceId);
                         logger.info("Revoked {}", leaseInfo);
                         revoked = true;
                     }
@@ -175,6 +184,7 @@ public final class RocksdbPersistentLeaser implements Leaser {
                     leaseInfo.extendTtlSeconds(ttlExtendBySeconds);
                     final long newExpirationSeconds = leaseInfo.getExpirationEpochSeconds();
                     dataStore.put(liveLeases, serializedResourceId, LeaseInfo.serialize(leaseInfo));
+                    memoryLeases.put(resourceId, leaseInfo);
                     logger.debug("Lease expiration seconds, prev:{}, new:{}", prevExpirationSeconds, newExpirationSeconds);
                 }
                 logger.info("Extended {} by {} seconds", leaseInfo, ttlExtendBySeconds);
@@ -301,25 +311,49 @@ public final class RocksdbPersistentLeaser implements Leaser {
                 try {
                     // logger.info("Auditing leases, live:{}, expired:{}", liveLeases.size(), expiredLeases.size());
                     logger.info("Auditing leases");
-                    try {
-                        final RocksIterator liveLeasesIter = dataStore.newIterator(liveLeases);
-                        for (liveLeasesIter.seekToFirst(); liveLeasesIter.isValid(); liveLeasesIter.next()) {
-                            final byte[] serializedResourceId = liveLeasesIter.key();
-                            final byte[] serializedLeaseInfo = liveLeasesIter.value();
-                            if (serializedResourceId != null && serializedLeaseInfo != null) {
-                                // final String resourceId = new String(serializedResourceId, StandardCharsets.UTF_8);
-                                final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
-                                if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
-                                    // TODO: better to do this atomically via a db txn
+                    /**
+                     * 1. scan the in-memory entries to find expiration candidates<br>
+                     * 2. add the expiration candidates to an in-memory delete queue<br>
+                     * 3. drop these tuples from persistent storage<br>
+                     * 4. drop them from in-memory map
+                     */
+                    for (final Map.Entry<String, LeaseInfo> leaseEntry : memoryLeases.entrySet()) {
+                        if (leaseEntry != null) {
+                            final String resourceId = leaseEntry.getKey();
+                            final LeaseInfo leaseInfo = leaseEntry.getValue();
+                            if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
+                                try {
+                                    final byte[] serializedResourceId = resourceId.getBytes(StandardCharsets.UTF_8);
+                                    final byte[] serializedLeaseInfo = LeaseInfo.serialize(leaseInfo);
                                     dataStore.put(expiredLeases, serializedResourceId, serializedLeaseInfo);
                                     dataStore.delete(liveLeases, serializedResourceId);
+                                    memoryLeases.remove(resourceId);
                                     logger.info("Expired {}", leaseInfo);
+                                } catch (RocksDBException persistenceIssue) {
+                                    logger.error("Encountered rocksdb persistence issue", persistenceIssue);
                                 }
                             }
                         }
-                    } catch (RocksDBException persistenceIssue) {
-                        logger.error("Encountered rocksdb persistence issue", persistenceIssue);
                     }
+                    // try {
+                    // final RocksIterator liveLeasesIter = dataStore.newIterator(liveLeases);
+                    // for (liveLeasesIter.seekToFirst(); liveLeasesIter.isValid(); liveLeasesIter.next()) {
+                    // final byte[] serializedResourceId = liveLeasesIter.key();
+                    // final byte[] serializedLeaseInfo = liveLeasesIter.value();
+                    // if (serializedResourceId != null && serializedLeaseInfo != null) {
+                    // // final String resourceId = new String(serializedResourceId, StandardCharsets.UTF_8);
+                    // final LeaseInfo leaseInfo = LeaseInfo.deserialize(serializedLeaseInfo);
+                    // if (Instant.now().isAfter(Instant.ofEpochSecond(leaseInfo.getExpirationEpochSeconds()))) {
+                    // // TODO: better to do this atomically via a db txn
+                    // dataStore.put(expiredLeases, serializedResourceId, serializedLeaseInfo);
+                    // dataStore.delete(liveLeases, serializedResourceId);
+                    // logger.info("Expired {}", leaseInfo);
+                    // }
+                    // }
+                    // }
+                    // } catch (RocksDBException persistenceIssue) {
+                    // logger.error("Encountered rocksdb persistence issue", persistenceIssue);
+                    // }
                     sleep(TimeUnit.MILLISECONDS.convert(runIntervalSeconds, TimeUnit.SECONDS));
                 } catch (InterruptedException interrupted) {
                     break;

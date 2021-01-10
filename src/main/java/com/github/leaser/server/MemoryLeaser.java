@@ -26,7 +26,7 @@ public final class MemoryLeaser implements Leaser {
 
     private final AtomicBoolean running;
     private final AtomicBoolean ready;
-    private final ConcurrentMap<String, LeaseInfo> liveLeases = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, LeaseInfo> liveLeases;
 
     private static final int expiredLeasesToKeep = 25;
     private final Set<LeaseInfo> expiredLeases = Collections.newSetFromMap(new LinkedHashMap<LeaseInfo, Boolean>() {
@@ -57,6 +57,7 @@ public final class MemoryLeaser implements Leaser {
         this.ready = new AtomicBoolean(false);
         this.maxTtlSecondsAllowed = TimeUnit.SECONDS.convert(maxTtlDaysAllowed, TimeUnit.DAYS);
         this.leaseAuditorIntervalSeconds = leaseAuditorIntervalSeconds;
+        liveLeases = new ConcurrentHashMap<>();
     }
 
     @Override
